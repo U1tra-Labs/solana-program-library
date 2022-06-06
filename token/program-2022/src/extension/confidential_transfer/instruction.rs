@@ -1,5 +1,5 @@
 #[cfg(not(target_os = "solana"))]
-use solana_zk_token_sdk::encryption::auth_encryption::AeCiphertext;
+// use solana_zk_token_sdk::encryption::auth_encryption::AeCiphertext;
 pub use solana_zk_token_sdk::zk_token_proof_instruction::*;
 use {
     crate::{
@@ -517,7 +517,7 @@ pub fn configure_account(
     token_account: &Pubkey,
     mint: &Pubkey,
     encryption_pubkey: EncryptionPubkey,
-    decryptable_zero_balance: AeCiphertext,
+    decryptable_zero_balance: pod::AeCiphertext,
     authority: &Pubkey,
     multisig_signers: &[&Pubkey],
 ) -> Result<Instruction, ProgramError> {
@@ -707,7 +707,7 @@ pub fn withdraw(
     mint: &Pubkey,
     amount: u64,
     decimals: u8,
-    new_decryptable_available_balance: AeCiphertext,
+    new_decryptable_available_balance: pod::AeCiphertext,
     authority: &Pubkey,
     multisig_signers: &[&Pubkey],
     proof_data: &WithdrawData,
@@ -776,7 +776,7 @@ pub fn transfer(
     source_token_account: &Pubkey,
     destination_token_account: &Pubkey,
     mint: &Pubkey,
-    new_source_decryptable_available_balance: AeCiphertext,
+    new_source_decryptable_available_balance: pod::AeCiphertext,
     authority: &Pubkey,
     multisig_signers: &[&Pubkey],
     proof_data: &TransferData,
@@ -843,7 +843,7 @@ pub fn transfer_with_fee(
     source_token_account: &Pubkey,
     destination_token_account: &Pubkey,
     mint: &Pubkey,
-    new_source_decryptable_available_balance: AeCiphertext,
+    new_source_decryptable_available_balance: pod::AeCiphertext,
     authority: &Pubkey,
     multisig_signers: &[&Pubkey],
     proof_data: &TransferWithFeeData,
@@ -902,7 +902,7 @@ pub fn apply_pending_balance(
     token_program_id: &Pubkey,
     token_account: &Pubkey,
     pending_balance_instructions: u64,
-    new_decryptable_available_balance: AeCiphertext,
+    new_decryptable_available_balance: pod::AeCiphertext,
     authority: &Pubkey,
     multisig_signers: &[&Pubkey],
 ) -> Result<Instruction, ProgramError> {
