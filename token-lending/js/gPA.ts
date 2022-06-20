@@ -2,21 +2,10 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { parseLendingMarket } from './src/state/lendingMarket';
 import { parseReserve } from './src/state/reserve';
 
-const connection = new Connection('https://api.devnet.solana.com ');
+const connection = new Connection('https://api.devnet.solana.com');
+const lendingMarketPubkey = new PublicKey('7T12b6nyt6vbgj1rvaW2PVvicTvsrdSY5YNNSchGTqLg')
 
-const getMarketData = async () => {
-    const lendingMarketPubkey = new PublicKey('7T12b6nyt6vbgj1rvaW2PVvicTvsrdSY5YNNSchGTqLg')
-    const lendingMarketInfo = await connection.getAccountInfo(lendingMarketPubkey)
-    const data = parseLendingMarket(lendingMarketPubkey, lendingMarketInfo!)
-    console.log(data?.data.owner.toBase58())
-    console.log(data?.data.tokenProgramId.toBase58())
-    console.log(data?.data.oracleProgramId.toBase58())
-    
-}
-getMarketData()
-
-const getReserveData = async () => {
-    const reservePubkey = new PublicKey('5yUyBmzTAus5LGvEEtMdZSDPdP4zLaWCk1szxFkh86VE')
+const getReserveData = async (reservePubkey: PublicKey) => {
     const reserveInfo = await connection.getAccountInfo(reservePubkey)
     const data = parseReserve(reservePubkey, reserveInfo!)
     console.log(data?.data.lendingMarket.toBase58())
@@ -37,4 +26,28 @@ const getReserveData = async () => {
     console.log("////  Raw ////////")
     console.log(data?.data)
 }
-getReserveData()
+
+
+// this will get all reserve accounts for a given lendingMarket pubkey
+const getProgramAccounts = async () => {
+    const accounts = await connection.getParsedProgramAccounts(
+        new PublicKey("HCHiaAK26t9MFTj933s3Te71NGpwgb6Lbuev7q6phaSL"),
+        {
+            filters: [
+                {
+                    dataSize: 571, // number of bytes
+                },
+                {
+                    memcmp: {
+                        offset: 10, // number of bytes
+                        bytes: lendingMarketPubkey.toBase58(), // base58 encoded string
+                    },
+                },
+            ],
+        }
+      );
+    accounts.forEach(account => getReserveData(account.pubkey))
+    
+}
+getProgramAccounts()
+
