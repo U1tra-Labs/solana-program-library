@@ -5,8 +5,8 @@ import {
 } from "@solana/wallet-adapter-react-ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as anchor from "@project-serum/anchor";
-import { Program } from "@project-serum/anchor";
-import { PublicKey } from "@solana/web3.js";
+import { AnchorProvider, Program } from "@project-serum/anchor";
+import { LAMPORTS_PER_SOL, PublicKey, Transaction } from "@solana/web3.js";
 import {
   useAnchorWallet,
   useConnection,
@@ -16,13 +16,19 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTwitter, faDiscord } from "@fortawesome/free-brands-svg-icons";
 import { faGlobe } from "@fortawesome/free-solid-svg-icons";
 import Loading from "./components/Loading";
+import Reserves from "./components/Reserves";
 import { parseLendingMarket, parseReserve } from "./utils/state";
+import { getReserveAccounts } from "./components/actions/getReserveData";
+import { refreshReserveInstruction } from "./utils/instructions/";
+import { ORACLE_PROGRAM_ID } from "./utils/constants";
+import { connect } from "http2";
 
 export default function Home() {
   const wallet = useAnchorWallet() as AnchorWallet;
   const { connection } = useConnection();
-  const [loading, setLoading] = useState<boolean>(false);
-  
+  const [loading, setLoading] = useState<boolean>(true);
+  const [reservesData, setReservesData] = useState<any>();
+  const [provider, setProvider] = useState<AnchorProvider | undefined>(undefined);
 
   const anchorWallet = useMemo(() => {
     const walletIsLoaded = wallet?.publicKey;
@@ -38,37 +44,38 @@ export default function Home() {
 
   const refetchMarkets = useCallback(async () => {
     if (wallet && anchorWallet) {
-        console.log("Loading Ultra info");
-        setLoading(true);
-        const lendingMarketPubkey = new PublicKey('7T12b6nyt6vbgj1rvaW2PVvicTvsrdSY5YNNSchGTqLg')
-        const lendingMarketInfo = await connection.getAccountInfo(lendingMarketPubkey)
-        console.log(lendingMarketInfo)
-        const marketData = parseLendingMarket(lendingMarketPubkey, lendingMarketInfo!)
-        console.log(marketData?.data.owner.toBase58())
-        console.log(marketData?.data.tokenProgramId.toBase58())
-        console.log(marketData?.data.oracleProgramId.toBase58())
-    
-    
-        const reservePubkey = new PublicKey('5yUyBmzTAus5LGvEEtMdZSDPdP4zLaWCk1szxFkh86VE')
-        const reserveInfo = await connection.getAccountInfo(reservePubkey)
-        const data = parseReserve(reservePubkey, reserveInfo!)
-        console.log(data?.data.lendingMarket.toBase58())
-        console.log(data?.data.liquidity)
-        console.log("////  Liquidity ////////")
-        console.log("Mint pubkey", data?.data.liquidity.mintPubkey.toBase58())
-        console.log("Supply pubkey", data?.data.liquidity.supplyPubkey.toBase58())
-        console.log("Oracle pubkey", data?.data.liquidity.oraclePubkey.toBase58())
-        console.log("Fee receiver", data?.data.liquidity.feeReceiver.toBase58())
-        console.log("borrowed amount wads", data?.data.liquidity.borrowedAmountWads.toNumber())
-        console.log("cumulative borrowed rate wads", data?.data.liquidity.cumulativeBorrowRateWads.toNumber())
-        console.log("Market price", data?.data.liquidity.marketPrice.toNumber())
-        console.log("////  Collateral ////////")
-        console.log(data?.data.collateral)
-        console.log("Mint pubkey", data?.data.collateral.mintPubkey.toBase58())
-        console.log("Supply pubkey", data?.data.collateral.supplyPubkey.toBase58())
-        console.log(data?.data.config.fees)
-        console.log("////  Raw ////////")
-        console.log(data?.data)
+      console.log("Loading Ultra info");
+      setLoading(true);
+      const provider = new AnchorProvider(connection, wallet, AnchorProvider.defaultOptions())
+      setProvider(provider)
+
+      const lendingMarketPubkey = new PublicKey('7T12b6nyt6vbgj1rvaW2PVvicTvsrdSY5YNNSchGTqLg')
+      const lendingMarketInfo = await connection.getAccountInfo(lendingMarketPubkey)
+      const marketData = parseLendingMarket(lendingMarketPubkey, lendingMarketInfo!)
+      
+      const reservePubkey = new PublicKey('5yUyBmzTAus5LGvEEtMdZSDPdP4zLaWCk1szxFkh86VE')
+      const reserveInfo = await connection.getAccountInfo(reservePubkey)
+      const data = parseReserve(reservePubkey, reserveInfo!)
+
+      const possiblyReservesData = await getReserveAccounts()
+      if (possiblyReservesData) {
+          setReservesData(possiblyReservesData.result)
+          
+          // Code below to refresh reserve data
+
+          // for (let i=0; i<possiblyReservesData.result.length; i++) {
+          //   console.log(possiblyReservesData.result[i].data?.pubkey.toBase58())
+          //   const refreshIx = refreshReserveInstruction(possiblyReservesData.result[i].data?.pubkey!, possiblyReservesData.result[i].data?.data.liquidity.oraclePubkey!)
+            
+          //   await provider.sendAndConfirm(new Transaction().add(refreshIx), [])
+          //   console.log(refreshIx)
+          //   console.log("Oracle", possiblyReservesData.result[i].data?.data.liquidity.oraclePubkey.toBase58())
+          //   console.log(possiblyReservesData.result[i].data?.data.liquidity.marketPrice.toNumber())
+          // }
+          
+      }
+      console.log("Here it is:", possiblyReservesData.result[0].data?.data)
+        
     //   const program = await loadProgram(connection, anchorWallet);
     //   setAnchorProgram(program);
 
@@ -77,32 +84,36 @@ export default function Home() {
   }, [anchorWallet, connection, wallet]);
 
   useEffect(() => {
-    if (!loading) {
-      refetchMarkets();
-    }
+    refetchMarkets();
   }, [refetchMarkets]);
 
+  const connect = () => {
+    return (
+      <div>Connect Wallet</div>
+    )
+  }
   return (
     <AppWrapper>
       <Header>
-        <img src="/logo.svg" alt="logo" width="50" />
+        <Title>Ultra</Title>
+        {/* <img src="/logo.svg" alt="logo" width="50" /> */}
         <HeaderRight>
           <SocialLink
-            href="https://www.solsanctuary.io/"
+            // href="https://www.solsanctuary.io/"
             target="_blank"
             rel="noreferrer"
           >
             <FontAwesomeIcon icon={faGlobe} size="lg" />
           </SocialLink>
           <SocialLink
-            href="https://discord.gg/solsanctuary"
+            // href="https://discord.gg/solsanctuary"
             target="_blank"
             rel="noreferrer"
           >
             <FontAwesomeIcon icon={faDiscord} size="lg" />
           </SocialLink>
           <SocialLink
-            href="https://twitter.com/SolanaSanctuary"
+            // href="https://twitter.com/SolanaSanctuary"
             target="_blank"
             rel="noreferrer"
           >
@@ -113,24 +124,20 @@ export default function Home() {
         </HeaderRight>
       </Header>
 
-      <Hero>
-        <Title>The Greatest Derug&sbquo; Ever</Title>
-        <Subtitle>I&#8217;m Reloadddiiinnnggg</Subtitle>
-        <About>
-          It costs 1 Solana per bear to Reload. Swap-backs are free. There will
-          be 3 transactions.
-        </About>
-      </Hero>
-
-      {loading && <Loading />}
+      {!wallet ? connect(): loading && <Loading />}
       {!loading && (
-        <div>Insert things here</div>
+        <Body>
+          <Reserves 
+            reservesData={reservesData}
+            provider={provider}
+          />
+        </Body>
+        
         // insert logic here
       )}
 
       <Footer>
-        Powered by Ven, Solana Sanctuary, RadRugs, SolSlugs, Grape, and, most of
-        all, <strong>your big bear body.</strong>
+        Powered by Big Dogs. <strong>WAGMI.</strong>
       </Footer>
     </AppWrapper>
   );
@@ -142,10 +149,9 @@ const AppWrapper = styled.div`
   align-items: center;
   justify-content: flex-start;
   flex-direction: column;
-  color: var(--color-foreground);
+  color: white;
   padding-bottom: 50px;
-  background: radial-gradient(at bottom right, #f2a0ff, #401577);
-  background: radial-gradient(at bottom right, #ffc4c3, #984fac, #44279c);
+  background: #202A44;
   min-height: 100vh;
 `;
 
@@ -175,8 +181,13 @@ const HeaderRight = styled.div`
   justify-content: center;
 `;
 
+const Body = styled.div`
+  width: 95vw;
+  margin: 20px;
+`;
+
 const SocialLink = styled.a`
-  color: var(--color-accent);
+  color: white;
   :hover {
     color: var(--color-accent-active);
   }
@@ -184,7 +195,7 @@ const SocialLink = styled.a`
 
 const WalletDisconnectButtonStyled = styled(WalletDisconnectButton)`
   background: var(--color-accent);
-  color: var(--color-base);
+  color: white;
   height: 40px;
   justify-content: center;
   border-radius: 9px;
@@ -200,7 +211,7 @@ const WalletDisconnectButtonStyled = styled(WalletDisconnectButton)`
 
 const WalletMultiButtonStyled = styled(WalletMultiButton)`
   background: var(--color-accent);
-  color: var(--color-base);
+  color: white;
   height: 40px;
   justify-content: center;
   border-radius: 9px;
@@ -219,7 +230,7 @@ const Hero = styled.div`
 `;
 
 const Title = styled.div`
-  color: var(--color-primary);
+  color: white;
   font-weight: bold;
   font-size: 24px;
 `;
@@ -241,7 +252,7 @@ const About = styled.div`
   font-weight: light;
   margin-bottom: 32px;
   a {
-    color: var(--fore-ground);
+    color: white;
     font-weight: bold;
   }
 `;

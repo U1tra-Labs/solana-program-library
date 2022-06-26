@@ -27,7 +27,6 @@ const getReserveData = async (reservePubkey: PublicKey) => {
     console.log(data?.data)
 }
 
-
 // this will get all reserve accounts for a given lendingMarket pubkey
 const getProgramAccounts = async () => {
     const accounts = await connection.getParsedProgramAccounts(

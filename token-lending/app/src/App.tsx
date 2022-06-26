@@ -13,9 +13,9 @@ import {
   SolletExtensionWalletAdapter,
   SolletWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
+import 'bootstrap/dist/css/bootstrap.min.css';
 import "@solana/wallet-adapter-react-ui/styles.css";
 import { useMemo } from "react";
-
 import Home from "./Home";
 import { COMMITMENT, RPC_TIMEOUT } from "./utils/constants";
 
@@ -25,7 +25,7 @@ const connectionConfig: ConnectionConfig = {
 };
 // devnet
 const network = WalletAdapterNetwork.Devnet;
-const endpoint = "https://api.devnet.solana.com";
+const endpoint = "https://devnet.genesysgo.net/";
 // Mainnet
 // const network = WalletAdapterNetwork.Mainnet;
 // const endpoint = "https://ssc-dao.genesysgo.net/";
