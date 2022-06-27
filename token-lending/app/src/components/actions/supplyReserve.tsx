@@ -2,18 +2,22 @@ import { refreshReserveInstruction, depositReserveLiquidityInstruction } from ".
 import { Button, Modal, InputGroup, Form, Toast } from "react-bootstrap";
 import { useState } from "react";
 import { AnchorProvider } from "@project-serum/anchor";
-import { LAMPORTS_PER_SOL, PublicKey, Transaction } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
 import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getOrCreateAssociatedTokenAccount } from "@solana/spl-token";
-import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useAnchorWallet, AnchorWallet } from "@solana/wallet-adapter-react";
 import { LENDING_PROGRAM_ID } from "../../utils/constants";
-
+import { SmartInstructionSender, InstructionSet } from "@holaplex/solana-web3-tools";
+import { useSmartSender } from '../../utils/hooks';
+import { COMMITMENT, MAX_RETRIES } from "../../utils/constants";
 
 export default function SupplyReserve({
     element,
-    provider
+    provider,
+    callback
 }: {
-    element: any,
-    provider: AnchorProvider | undefined
+    element: any;
+    provider: AnchorProvider | undefined;
+    callback?: () => Promise<void>;
 }) {
     const [show, setShow] = useState<boolean>(false);
     const [showPopup, setShowPopup] = useState<boolean>(false);
@@ -22,14 +26,16 @@ export default function SupplyReserve({
     const handleClose = () => setShow(false);
     const handleShow = () => setShow(true);
     const { connection } = useConnection();
-    const wallet = useWallet();
+    const wallet = useAnchorWallet() as AnchorWallet;
+    const { failureCallback } = useSmartSender();
 
     const supplyReserve = async(element: any) => {
-        const tx = new Transaction()
+        
         console.log(element)
-        const refreshIx = refreshReserveInstruction(element.pubkey!, element.data?.liquidity.oraclePubkey!)
-        tx.add(refreshIx)
-        console.log(element)
+        const instructions: TransactionInstruction[] = [];
+        const refreshIx = refreshReserveInstruction(element.pubkey!, element.data?.liquidity.oraclePubkey!);
+        instructions.push(refreshIx);
+
         const sourceLiquidity = await getAssociatedTokenAddress(element.data?.liquidity.mintPubkey, wallet.publicKey!);
         const destinationCollateral = await getAssociatedTokenAddress(element.data?.collateral.mintPubkey, wallet.publicKey!);
         const [lendingMarketAuthority] = await PublicKey.findProgramAddress([element.data?.lendingMarket.toBuffer()], LENDING_PROGRAM_ID)
@@ -39,14 +45,14 @@ export default function SupplyReserve({
         const ataInfo = await connection.getAccountInfo(destinationCollateral)
         if (!ataInfo) {
             const createAtaIx = createAssociatedTokenAccountInstruction(
-                wallet.publicKey!,
+                wallet?.publicKey!,
                 destinationCollateral,
-                wallet.publicKey!,
+                wallet?.publicKey!,
                 element.data?.collateral.mintPubkey,
                 TOKEN_PROGRAM_ID,
                 ASSOCIATED_TOKEN_PROGRAM_ID
-            )
-            tx.add(createAtaIx)
+            );
+            instructions.push(createAtaIx);
         }
         
         const depositReserveIx = depositReserveLiquidityInstruction(
@@ -58,20 +64,51 @@ export default function SupplyReserve({
             element.data?.collateral.mintPubkey,
             element.data?.lendingMarket,
             lendingMarketAuthority,
-            wallet.publicKey!
+            wallet?.publicKey!
         )
-        console.log(depositReserveIx)
-        tx.add(depositReserveIx)
+        
+        instructions.push(depositReserveIx);
         console.log("We depositing it", amount)
-        let txId: string | undefined;
         try {
-            txId = await provider?.sendAndConfirm(tx, [], { commitment: 'confirmed'})
-            console.log("Deposit successful", txId)
-            setShow(false)
-            setShowPopup(true)
+            const instructionGroups: InstructionSet[] = [
+                {
+                  instructions,
+                  signers: [],
+                },
+              ];
+      
+            const sender = SmartInstructionSender.build(
+            wallet,
+            connection
+            )
+            .config({
+                maxSigningAttempts: MAX_RETRIES,
+                abortOnFailure: true,
+                commitment: COMMITMENT,
+            })
+            .withInstructionSets(instructionGroups)
+            .onProgress((_ind, txId) => {
+                console.log("Transaction sent successfully:", txId);
+            })
+            .onFailure(failureCallback)
+            .onReSign((attempt, i) => {
+                const msg = `Resigning: ${i} attempt: ${attempt}`;
+                console.warn(msg);
+            });
+
+            await sender
+            .send()
+            .then(() => {
+                console.log("Transaction success");
+                if (callback) {
+                callback();
+                }
+            })
+            .finally(() => {
+            //   setIsDisentangling(false);
+            });
         } catch (e) {
             console.log("Error", e)
-            console.log("id", txId)
         }
     }
     

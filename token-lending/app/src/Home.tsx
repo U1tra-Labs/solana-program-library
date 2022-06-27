@@ -130,6 +130,7 @@ export default function Home() {
           <Reserves 
             reservesData={reservesData}
             provider={provider}
+            callback={refetchMarkets}
           />
         </Body>
         

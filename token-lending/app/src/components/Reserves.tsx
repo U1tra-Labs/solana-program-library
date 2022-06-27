@@ -10,10 +10,12 @@ import SupplyReserve from "./actions/supplyReserve";
 
 export default function Reserves({
     reservesData,
-    provider
+    provider,
+    callback
 } : {
-    reservesData: any,
-    provider: AnchorProvider | undefined
+    reservesData: any;
+    provider: AnchorProvider | undefined;
+    callback?: () => Promise<void>;
 }) {
     const wallet = useAnchorWallet();
     const { connection } = useConnection();
@@ -59,6 +61,7 @@ export default function Reserves({
                             <SupplyReserve
                                 element={element}
                                 provider={provider}
+                                callback={callback}
                             />
                             {/* <SupplyReserve
                                 element={element}
