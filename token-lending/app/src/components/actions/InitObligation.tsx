@@ -3,7 +3,7 @@ import { AnchorWallet, useAnchorWallet, useConnection } from "@solana/wallet-ada
 import { Button, Form, Container } from "react-bootstrap";
 import { lendingMarketPubkey, LENDING_PROGRAM_ID, MAX_RETRIES, COMMITMENT } from "../../utils/constants";
 import { findObligationKey } from "../../utils/helpers";
-import { depositReserveLiquidityInstruction, initObligationInstruction } from "../../utils/instructions";
+import { depositObligationCollateralInstruction, depositReserveLiquidityInstruction, initObligationInstruction, refreshObligationInstruction, refreshReserveInstruction } from "../../utils/instructions";
 import { InstructionSet, SmartInstructionSender } from '@holaplex/solana-web3-tools';
 import { TransactionInstruction, SystemProgram, Keypair, PublicKey,  } from "@solana/web3.js";
 import { useSmartSender } from "../../utils/hooks";
@@ -12,40 +12,63 @@ import { useEffect, useState } from "react";
 
 
 export default function InitObligation({
+    reserve,
     callback
 }: {
+    reserve: any;
     callback?: () => Promise<void>;
 }) {
     const wallet = useAnchorWallet() as AnchorWallet;
     const { connection } = useConnection();
     const { failureCallback } = useSmartSender();
     const [disabled, setDisabled] = useState<boolean>(false);
-
+    
     const initObligation = async () => {
         const obligation = await PublicKey.createWithSeed(
             wallet.publicKey, 'obligation', LENDING_PROGRAM_ID
         )
-        console.log("Initialising obligation for account", obligation.toBase58())
-        const lamports = await connection.getMinimumBalanceForRentExemption(OBLIGATION_SIZE)
-
+        const obligationCheck = await connection.getAccountInfo(obligation)
         const instructions: TransactionInstruction[] = [];
-        const createAccoutIx = SystemProgram.createAccountWithSeed({
-            fromPubkey: wallet.publicKey,
-            newAccountPubkey: obligation,
-            basePubkey: wallet.publicKey,
-            seed: 'obligation',
-            lamports,
-            space: OBLIGATION_SIZE,
-            programId: LENDING_PROGRAM_ID
-        });
-        instructions.push(createAccoutIx);
-       
-        const initObligationIx: TransactionInstruction = initObligationInstruction(
+        // Eventually will need to check whether an obligation account has 10 token deposits
+        if (!obligationCheck) {
+            console.log("Initialising obligation for account", obligation.toBase58())
+            const lamports = await connection.getMinimumBalanceForRentExemption(OBLIGATION_SIZE)
+            
+            const createAccoutIx = SystemProgram.createAccountWithSeed({
+                fromPubkey: wallet.publicKey,
+                newAccountPubkey: obligation,
+                basePubkey: wallet.publicKey,
+                seed: 'obligation',
+                lamports,
+                space: OBLIGATION_SIZE,
+                programId: LENDING_PROGRAM_ID
+            });
+            instructions.push(createAccoutIx);
+        
+            const initObligationIx: TransactionInstruction = initObligationInstruction(
+                obligation,
+                lendingMarketPubkey,
+                wallet?.publicKey!
+            )
+            instructions.push(initObligationIx)
+        }
+
+        const refreshIx = refreshReserveInstruction(reserve.data.pubkey!, reserve.data?.data.liquidity.oraclePubkey!);
+        instructions.push(refreshIx);
+        // deposit collateral
+        console.log(reserve.data.pubkey.toBase58())
+        const depositObligationCollateralIx: TransactionInstruction = depositObligationCollateralInstruction(
+            reserve.amount,
+            reserve.sourceCollateral,
+            reserve.data.data.collateral.supplyPubkey,
+            reserve.data.pubkey,
             obligation,
-            lendingMarketPubkey,
-            wallet?.publicKey!
+            reserve.data.data.lendingMarket,
+            wallet.publicKey,
+            wallet.publicKey
         )
-        instructions.push(initObligationIx)
+        instructions.push(depositObligationCollateralIx)
+        console.log(instructions)
         try {
             const instructionGroups: InstructionSet[] = [
                 {
@@ -86,6 +109,7 @@ export default function InitObligation({
             });
         } catch (e) {
             console.log("Error", e)
+            console.log(wallet.publicKey)
         }
 
     }

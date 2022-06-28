@@ -8,6 +8,7 @@ import { getAccount, getAssociatedTokenAddress, getMint, Mint } from "@solana/sp
 import { AnchorProvider } from "@project-serum/anchor";
 import SupplyReserveLiquidity from "./actions/SupplyReserveLiquidity";
 import BorrowObligationLiquidity from "./actions/BorrowObligationLiquidity";
+import { WRAPPED_SOL } from "../utils/constants";
 
 export default function Reserves({
     reservesData,
@@ -28,13 +29,18 @@ export default function Reserves({
         
         useEffect(() => {
             // const mintInfo = getMint(connection, element.data.liquidity.mintPubkey);
-            const userAta = getAssociatedTokenAddress(element.data.liquidity.mintPubkey, wallet?.publicKey!)
-            Promise.resolve(userAta).then((res) => {    
-                const ataInfo = getAccount(connection, res)
-                Promise.resolve(ataInfo).then((info) => setInfo(Number(info.amount) / Math.pow(10, element.data.liquidity.mintDecimals)))
-                    .catch(() => setInfo(0))
-            });
-            
+            if (element.data.liquidity.mintPubkey.toBase58() === WRAPPED_SOL) {
+                Promise.resolve(connection.getBalance(wallet?.publicKey!)
+                    .then((res) => setInfo(res / LAMPORTS_PER_SOL))
+                );
+            } else {
+                const userAta = getAssociatedTokenAddress(element.data.liquidity.mintPubkey, wallet?.publicKey!)
+                Promise.resolve(userAta).then((res) => {    
+                    const ataInfo = getAccount(connection, res)
+                    Promise.resolve(ataInfo).then((info) => setInfo(Number(info.amount) / Math.pow(10, element.data.liquidity.mintDecimals)))
+                        .catch(() => setInfo(0))
+                });
+            }     
         }, [index])
         
         // *1. Need to calculate Supply and Borrow APRs
@@ -46,7 +52,7 @@ export default function Reserves({
                     <td>SOL</td>
                     <td>*1</td> 
                     <td>*1</td> 
-                    <td>{info}</td> 
+                    <td>{info.toFixed(2)}</td> 
                     <td>{Number(element.data.liquidity.availableAmount) / Math.pow(10, element.data.liquidity.mintDecimals)}</td>
                     <td>
                         <ButtonGroup>

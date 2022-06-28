@@ -8,3 +8,4 @@ export const MAX_RETRIES = 3;
 
 export const OBLIGATION = Buffer.from("obligation");
 export const lendingMarketPubkey = new PublicKey('7T12b6nyt6vbgj1rvaW2PVvicTvsrdSY5YNNSchGTqLg');
+export const WRAPPED_SOL = 'So11111111111111111111111111111111111111112';

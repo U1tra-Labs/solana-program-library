@@ -3,8 +3,11 @@ import InitObligation from "./actions/InitObligation";
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useEffect, useState, useCallback } from "react";
 import { Table } from 'react-bootstrap';
+import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { getAccount, getAssociatedTokenAddress, getMint } from "@solana/spl-token";
 import Loading from "./Loading";
+import { LENDING_PROGRAM_ID, WRAPPED_SOL } from "../utils/constants";
+import { parseObligation } from "../utils/state";
 
 export default function Positions({
     reservesData,
@@ -21,19 +24,41 @@ export default function Positions({
 
     const getUserData = useCallback(async () => {
         await Promise.all(reservesData.map(async (reserve: any) => {
-            try {
-                const userCollateralAta = await getAssociatedTokenAddress(reserve.data.data.collateral.mintPubkey, wallet?.publicKey!)
+            const userCollateralAta = await getAssociatedTokenAddress(reserve.data.data.collateral.mintPubkey, wallet?.publicKey!)
+            try {    
                 const collateralMint = await getMint(connection, reserve.data.data.collateral.mintPubkey)
                 const collateralAmount = await getAccount(connection, userCollateralAta)
-                reserve.amount = Number(collateralAmount.amount) / Math.pow(10, collateralMint.decimals)
+                reserve.amount = Number(collateralAmount.amount)
+                reserve.decimals = collateralMint.decimals;
+                const obligation = await PublicKey.createWithSeed(
+                    wallet?.publicKey!, 'obligation', LENDING_PROGRAM_ID
+                )
+                // Add Amounts from the Obligation account (note will need a way to refresh this data without sending a program instruction)
+                const obligationInfo = await connection.getAccountInfo(obligation)
+                if (obligationInfo) {
+                    const parsedObligation = parseObligation(obligation, obligationInfo)
+                    parsedObligation?.data.deposits.map((deposit) => {
+                        if (deposit.depositReserve.toBase58() === reserve.data.pubkey.toBase58()) {
+                            reserve.amount += Number(deposit.depositedAmount)
+                        }
+                    })
+                    console.log()
+                }
             } catch {
                 reserve.amount = 0
             }
+            reserve.sourceCollateral = userCollateralAta;
             try {
-                const userLiquidityAta = await getAssociatedTokenAddress(reserve.data.data.liquidity.mintPubkey, wallet?.publicKey!)
-                const liquidityMint = await getMint(connection, reserve.data.data.liquidity.mintPubkey)
-                const liquidityAmount = await getAccount(connection, userLiquidityAta)
-                reserve.lAmount = Number(liquidityAmount.amount) / Math.pow(10, liquidityMint.decimals)
+                if (reserve.data.data.liquidity.mintPubkey.toBase58() === WRAPPED_SOL) {
+                    const balance = await connection.getBalance(wallet?.publicKey!)
+                    reserve.lAmount = (balance / LAMPORTS_PER_SOL)
+                } else {
+                    const userLiquidityAta = await getAssociatedTokenAddress(reserve.data.data.liquidity.mintPubkey, wallet?.publicKey!)
+                    const liquidityMint = await getMint(connection, reserve.data.data.liquidity.mintPubkey)
+                    const liquidityAmount = await getAccount(connection, userLiquidityAta)
+                    reserve.lAmount = Number(liquidityAmount.amount) / Math.pow(10, liquidityMint.decimals)
+                }
+                
             } catch {
                 reserve.lAmount = 0
             }
@@ -55,18 +80,19 @@ export default function Positions({
         return (
             <tr key={index}>
                 <td>SOL</td>
-                <td>{element.amount}</td> 
+                <td>{(element.amount/ Math.pow(10, element.decimals)).toFixed(2)}</td> 
                 <td>*1</td> 
-                <td>{element.lAmount}</td> 
-                <td>{Number(element.data.data.liquidity.availableAmount) / Math.pow(10, element.data.data.liquidity.mintDecimals)}</td>
+                <td>{element.lAmount.toFixed(2)}</td> 
+                <td>{(Number(element.data.data.liquidity.availableAmount) / Math.pow(10, element.data.data.liquidity.mintDecimals)).toFixed(2)}</td>
                 <td>
-                    <InitObligation callback={callback}/>
-                    
+                    <InitObligation 
+                        reserve={element}
+                        callback={callback}
+                    />
                 </td>
             </tr>
         ) 
     }
-
 
     return(
         <div>
