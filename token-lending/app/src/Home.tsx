@@ -21,13 +21,14 @@ import { parseLendingMarket, parseReserve } from "./utils/state";
 import { getReserveAccounts } from "./components/actions/getReserveData";
 import { refreshReserveInstruction } from "./utils/instructions/";
 import { ORACLE_PROGRAM_ID } from "./utils/constants";
-import { connect } from "http2";
+import { Tabs, Tab, Row, Col } from 'react-bootstrap';
+import Positions from "./components/Positions";
 
 export default function Home() {
   const wallet = useAnchorWallet() as AnchorWallet;
   const { connection } = useConnection();
   const [loading, setLoading] = useState<boolean>(true);
-  const [reservesData, setReservesData] = useState<any>();
+  const [reservesData, setReservesData] = useState<any>(undefined);
   const [provider, setProvider] = useState<AnchorProvider | undefined>(undefined);
 
   const anchorWallet = useMemo(() => {
@@ -53,10 +54,6 @@ export default function Home() {
       const lendingMarketInfo = await connection.getAccountInfo(lendingMarketPubkey)
       const marketData = parseLendingMarket(lendingMarketPubkey, lendingMarketInfo!)
       
-      const reservePubkey = new PublicKey('5yUyBmzTAus5LGvEEtMdZSDPdP4zLaWCk1szxFkh86VE')
-      const reserveInfo = await connection.getAccountInfo(reservePubkey)
-      const data = parseReserve(reservePubkey, reserveInfo!)
-
       const possiblyReservesData = await getReserveAccounts()
       if (possiblyReservesData) {
           setReservesData(possiblyReservesData.result)
@@ -95,47 +92,66 @@ export default function Home() {
   return (
     <AppWrapper>
       <Header>
-        <Title>Ultra</Title>
-        {/* <img src="/logo.svg" alt="logo" width="50" /> */}
-        <HeaderRight>
-          <SocialLink
-            // href="https://www.solsanctuary.io/"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <FontAwesomeIcon icon={faGlobe} size="lg" />
-          </SocialLink>
-          <SocialLink
-            // href="https://discord.gg/solsanctuary"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <FontAwesomeIcon icon={faDiscord} size="lg" />
-          </SocialLink>
-          <SocialLink
-            // href="https://twitter.com/SolanaSanctuary"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <FontAwesomeIcon icon={faTwitter} size="lg" />
-          </SocialLink>
-          {wallet && <WalletDisconnectButtonStyled />}
-          {!wallet && <WalletMultiButtonStyled />}
-        </HeaderRight>
-      </Header>
-
-      {!wallet ? connect(): loading && <Loading />}
-      {!loading && (
-        <Body>
-          <Reserves 
-            reservesData={reservesData}
-            provider={provider}
-            callback={refetchMarkets}
-          />
-        </Body>
         
-        // insert logic here
-      )}
+        
+        {/* <img src="/logo.svg" alt="logo" width="50" /> */}
+        
+        <Title>Ultra</Title>
+          
+            <HeaderRight>
+              
+              <SocialLink
+                // href="https://discord.gg/solsanctuary"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <FontAwesomeIcon icon={faDiscord} size="lg" />
+              </SocialLink>
+              <SocialLink
+                // href="https://twitter.com/SolanaSanctuary"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <FontAwesomeIcon icon={faTwitter} size="lg" />
+              </SocialLink>
+              {wallet && <WalletDisconnectButtonStyled />}
+              {!wallet && <WalletMultiButtonStyled />}
+            </HeaderRight>
+
+      </Header>
+      <Tabs defaultActiveKey="home" id="uncontrolled-tab-example" className="mb-3">
+            
+        <Tab eventKey="home" title="Home">
+          {!loading ? (
+            <Body>
+              <Reserves 
+                reservesData={reservesData}
+                provider={provider}
+                callback={refetchMarkets}
+              />
+            </Body>
+          ) : (
+            <Body>
+              {!wallet ? connect() : <Loading />}
+            </Body>
+            
+          )}
+        </Tab>
+        <Tab eventKey="positions" title="Positions">
+          {/* Insert activate obligation account here */}
+          <Body>
+            <Positions
+              reservesData={reservesData}
+              provider={provider}
+              callback={refetchMarkets}
+            />
+          </Body>
+          
+        </Tab>
+        <Tab eventKey="contact" title="Contact" disabled>
+          <div>Test</div>
+        </Tab>
+      </Tabs>  
 
       <Footer>
         Powered by Big Dogs. <strong>WAGMI.</strong>

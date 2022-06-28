@@ -10,7 +10,7 @@ import { SmartInstructionSender, InstructionSet } from "@holaplex/solana-web3-to
 import { useSmartSender } from '../../utils/hooks';
 import { COMMITMENT, MAX_RETRIES } from "../../utils/constants";
 
-export default function SupplyReserve({
+export default function SupplyReserveLiquidity({
     element,
     provider,
     callback

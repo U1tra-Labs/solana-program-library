@@ -13,6 +13,7 @@ export const useSmartSender = () => {
   );
 
   const failureCallback = useCallback((errorObj: SendAndConfirmError) => {
+    console.log(errorObj)
     console.log("Error type", errorObj.type);
     let errorMsg: string | null = null;
 

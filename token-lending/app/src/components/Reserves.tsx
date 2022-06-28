@@ -6,7 +6,8 @@ import { Table, Container, ButtonGroup } from 'react-bootstrap';
 import { getReserveAccounts } from './actions/getReserveData';
 import { getAccount, getAssociatedTokenAddress, getMint, Mint } from "@solana/spl-token";
 import { AnchorProvider } from "@project-serum/anchor";
-import SupplyReserve from "./actions/supplyReserve";
+import SupplyReserveLiquidity from "./actions/SupplyReserveLiquidity";
+import BorrowObligationLiquidity from "./actions/BorrowObligationLiquidity";
 
 export default function Reserves({
     reservesData,
@@ -22,33 +23,24 @@ export default function Reserves({
 
     const data: any = reservesData.map((reserve: any) => reserve.data)
 
-    const supplyReserve = async (element) => {
-        console.log("Supplying reserve...")
-    }
-
-    const borrowReserve = async (element) => {
-        console.log("Borrowing reserve...")
-    }
-
     const ReserveEntry = (element: any, index: number) => {
         const [info, setInfo] = useState<number | undefined>(undefined)
         
         useEffect(() => {
             // const mintInfo = getMint(connection, element.data.liquidity.mintPubkey);
             const userAta = getAssociatedTokenAddress(element.data.liquidity.mintPubkey, wallet?.publicKey!)
-            Promise.resolve(userAta).then((res) => {
+            Promise.resolve(userAta).then((res) => {    
                 const ataInfo = getAccount(connection, res)
                 Promise.resolve(ataInfo).then((info) => setInfo(Number(info.amount) / Math.pow(10, element.data.liquidity.mintDecimals)))
-            //     console.log(res.address.toBase58())
-                
-            })
+                    .catch(() => setInfo(0))
+            });
             
         }, [index])
         
         // *1. Need to calculate Supply and Borrow APRs
         // *2 Need to read connected wallet to get amount held by user in this market 
         // *3 Need a better way to get the mint decimals - this seems to be slow and calling multiple times
-        if (info) {
+        if (info !== undefined) {
             return (
                 <tr key={index}>
                     <td>SOL</td>
@@ -58,15 +50,16 @@ export default function Reserves({
                     <td>{Number(element.data.liquidity.availableAmount) / Math.pow(10, element.data.liquidity.mintDecimals)}</td>
                     <td>
                         <ButtonGroup>
-                            <SupplyReserve
+                            <SupplyReserveLiquidity
                                 element={element}
                                 provider={provider}
                                 callback={callback}
                             />
-                            {/* <SupplyReserve
+                            <BorrowObligationLiquidity
                                 element={element}
                                 provider={provider}
-                            /> */}
+                                callback={callback}
+                            />
                         </ButtonGroup>
                         
                     </td>
