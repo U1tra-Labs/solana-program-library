@@ -71,7 +71,7 @@ export default function Home() {
           // }
           
       }
-      console.log("Here it is:", possiblyReservesData.result[0].data?.data)
+      console.log("Here it is:", possiblyReservesData.result[0].data?.data);
         
     //   const program = await loadProgram(connection, anchorWallet);
     //   setAnchorProgram(program);

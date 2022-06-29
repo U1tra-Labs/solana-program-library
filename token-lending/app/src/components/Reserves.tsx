@@ -53,7 +53,7 @@ export default function Reserves({
                     <td>*1</td> 
                     <td>*1</td> 
                     <td>{info.toFixed(2)}</td> 
-                    <td>{Number(element.data.liquidity.availableAmount) / Math.pow(10, element.data.liquidity.mintDecimals)}</td>
+                    <td>{(Number(element.data.liquidity.availableAmount) / Math.pow(10, element.data.liquidity.mintDecimals)).toFixed(2)}</td>
                     <td>
                         <ButtonGroup>
                             <SupplyReserveLiquidity
