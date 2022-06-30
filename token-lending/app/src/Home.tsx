@@ -14,15 +14,18 @@ import {
 } from "@solana/wallet-adapter-react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTwitter, faDiscord } from "@fortawesome/free-brands-svg-icons";
-import { faGlobe } from "@fortawesome/free-solid-svg-icons";
 import Loading from "./components/Loading";
 import Reserves from "./components/Reserves";
 import { parseLendingMarket, parseReserve } from "./utils/state";
 import { getReserveAccounts } from "./components/actions/getReserveData";
-import { refreshReserveInstruction } from "./utils/instructions/";
-import { ORACLE_PROGRAM_ID } from "./utils/constants";
+import { getUserData } from './components/actions/getUserData';
 import { Tabs, Tab, Row, Col } from 'react-bootstrap';
 import Positions from "./components/Positions";
+import { startPyth } from './utils/util/startPyth';
+import * as pyth from "@pythnetwork/client";
+import BigNumber from "bignumber.js";
+import { bigInt } from "@solana/buffer-layout-utils";
+import { getMint } from "@solana/spl-token";
 
 export default function Home() {
   const wallet = useAnchorWallet() as AnchorWallet;
@@ -55,9 +58,53 @@ export default function Home() {
       const marketData = parseLendingMarket(lendingMarketPubkey, lendingMarketInfo!)
       
       const possiblyReservesData = await getReserveAccounts()
+      console.log(possiblyReservesData.result[0].data?.data.config)
+      const total_supply = (Number(possiblyReservesData.result[0].data?.data.liquidity.availableAmount) + possiblyReservesData.result[0].data!.data.liquidity.borrowedAmountWads.toNumber()) / Math.pow(10, possiblyReservesData.result[0].data!.data.liquidity.mintDecimals)
+      console.log("Here", total_supply )
+      const collateralMintInfo = await getMint(connection, possiblyReservesData.result[0].data!.data.collateral.mintPubkey)
+      console.log(collateralMintInfo)
+      const mint_total_supply =  Number(possiblyReservesData.result[0].data?.data.collateral.mintTotalSupply) / Math.pow(10, collateralMintInfo.decimals)
+      console.log(possiblyReservesData.result[0].data?.data)
+      console.log("Exchange rate", total_supply / mint_total_supply)
+      const pythClient = new pyth.PythHttpClient(connection, pyth.getPythProgramKeyForCluster("devnet"));
+      const data = await pythClient.getData();
+      const oracleIds = possiblyReservesData.result.map((reserve) => reserve.data?.data.liquidity.oraclePubkey.toBase58())
+      const filtered = data.products.filter((product => oracleIds.includes(product.price_account)))
+      possiblyReservesData.result.forEach((reserve) => {
+        const symbol = filtered.filter((product) => product.price_account === reserve.data?.data.liquidity.oraclePubkey.toBase58())[0].symbol
+        const price = data.productPrice.get(symbol)!.price
+        reserve!.data!.data.liquidity.marketPrice = new BigNumber(price!);
+      });
+      console.log("After", possiblyReservesData.result[0].data?.data.liquidity.marketPrice.toNumber())
+      
+      const possiblyUserData = await getUserData(wallet.publicKey);
+      
+      if (possiblyUserData.result.length > 0) {
+        const userBorrows = possiblyUserData.result.map((obligation) => 
+          obligation.data?.data.borrows.map((borrow) => {
+            console.log(obligation.data)
+            const reserveInfo = possiblyReservesData.result.filter(x => x.data?.pubkey.toBase58() === borrow.borrowReserve.toBase58())  
+            return ([borrow.borrowReserve.toBase58(), borrow.borrowedAmountWads.toNumber() / Math.pow(10, reserveInfo[0].data?.data.liquidity.mintDecimals!), borrow.cumulativeBorrowRateWads.toNumber(), borrow.marketValue.toNumber()])
+        }))
+        const userDeposits = possiblyUserData.result.map((obligation) => 
+          obligation.data?.data.deposits.map((deposit) => {
+            const reserve = possiblyReservesData.result.filter(reserve => reserve.data?.pubkey.toBase58() === deposit.depositReserve.toBase58())[0]
+            const newPrice = reserve.data?.data.liquidity.marketPrice
+            console.log("Dep amount:", deposit.depositedAmount)
+            deposit!.marketValue = new BigNumber(newPrice!.toNumber() * Number(deposit.depositedAmount) / Math.pow(10, reserve.data?.data.liquidity.mintDecimals!))
+            return ([deposit.depositReserve.toBase58(), Number(deposit.depositedAmount), deposit.marketValue.toNumber()])
+        }))
+        // set the total value of deposits and borrows
+        console.log("Borrowed:", possiblyUserData.result[0].data?.data.borrowedValue.toNumber()) 
+        console.log("Deposited:", possiblyUserData.result[0].data?.data.depositedValue.toNumber())
+        console.log(userDeposits)
+        console.log(userBorrows)
+      } else {
+        console.log("No user obligation account")
+      }
+      
       if (possiblyReservesData) {
           setReservesData(possiblyReservesData.result)
-          
           // Code below to refresh reserve data
 
           // for (let i=0; i<possiblyReservesData.result.length; i++) {
@@ -72,6 +119,7 @@ export default function Home() {
           
       }
       console.log("Here it is:", possiblyReservesData.result[0].data?.data);
+
         
     //   const program = await loadProgram(connection, anchorWallet);
     //   setAnchorProgram(program);

@@ -1,13 +1,15 @@
 import { AnchorProvider } from "@project-serum/anchor";
 import { AnchorWallet, useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import { Button, Form, Container } from "react-bootstrap";
-import { lendingMarketPubkey, LENDING_PROGRAM_ID, MAX_RETRIES, COMMITMENT } from "../../utils/constants";
-import { findObligationKey } from "../../utils/helpers";
-import { depositObligationCollateralInstruction, depositReserveLiquidityInstruction, initObligationInstruction, refreshObligationInstruction, refreshReserveInstruction } from "../../utils/instructions";
+import { lendingMarketPubkey, LENDING_PROGRAM_ID, MAX_RETRIES, COMMITMENT } from "../utils/constants";
+import { 
+    depositObligationCollateralInstruction, 
+    initObligationInstruction,  
+    refreshReserveInstruction } from "../utils/instructions";
 import { InstructionSet, SmartInstructionSender } from '@holaplex/solana-web3-tools';
 import { TransactionInstruction, SystemProgram, Keypair, PublicKey,  } from "@solana/web3.js";
-import { useSmartSender } from "../../utils/hooks";
-import { OBLIGATION_SIZE } from "../../utils/state";
+import { useSmartSender } from "../utils/hooks";
+import { OBLIGATION_SIZE } from "../utils/state";
 import { useEffect, useState } from "react";
 
 

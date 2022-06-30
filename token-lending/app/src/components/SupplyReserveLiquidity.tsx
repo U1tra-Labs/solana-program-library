@@ -1,4 +1,4 @@
-import { refreshReserveInstruction, depositReserveLiquidityInstruction, depositObligationCollateralInstruction, refreshObligationInstruction } from "../../utils/instructions";
+import { refreshReserveInstruction, depositReserveLiquidityInstruction, depositObligationCollateralInstruction, refreshObligationInstruction } from "../utils/instructions";
 import { Button, Modal, InputGroup, Form, Toast } from "react-bootstrap";
 import { useState } from "react";
 import { AnchorProvider } from "@project-serum/anchor";
@@ -7,23 +7,20 @@ import {
     getAssociatedTokenAddress, 
     createAssociatedTokenAccountInstruction, 
     TOKEN_PROGRAM_ID, 
-    ASSOCIATED_TOKEN_PROGRAM_ID, 
-    getMinimumBalanceForRentExemptMint,
-    MINT_SIZE,
-    initializeAccountInstructionData,
+    ASSOCIATED_TOKEN_PROGRAM_ID,
     createInitializeAccountInstruction,
     getMinimumBalanceForRentExemptAccount,
     createCloseAccountInstruction,
     ACCOUNT_SIZE
 } from "@solana/spl-token";
 import { useConnection, useAnchorWallet, AnchorWallet } from "@solana/wallet-adapter-react";
-import { LENDING_PROGRAM_ID, WRAPPED_SOL } from "../../utils/constants";
+import { LENDING_PROGRAM_ID, WRAPPED_SOL } from "../utils/constants";
 import { SmartInstructionSender, InstructionSet } from "@holaplex/solana-web3-tools";
-import { useSmartSender } from '../../utils/hooks';
-import { COMMITMENT, MAX_RETRIES } from "../../utils/constants";
+import { useSmartSender } from '../utils/hooks';
+import { COMMITMENT, MAX_RETRIES } from "../utils/constants";
 import { Keypair } from "@solana/web3.js";
 import { Signer } from "@solana/web3.js";
-import { parseObligation } from "../../utils/state";
+import { parseObligation } from "../utils/state";
 
 export default function SupplyReserveLiquidity({
     element,

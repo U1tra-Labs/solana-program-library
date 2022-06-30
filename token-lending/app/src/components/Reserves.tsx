@@ -6,8 +6,8 @@ import { Table, Container, ButtonGroup } from 'react-bootstrap';
 import { getReserveAccounts } from './actions/getReserveData';
 import { getAccount, getAssociatedTokenAddress, getMint, Mint } from "@solana/spl-token";
 import { AnchorProvider } from "@project-serum/anchor";
-import SupplyReserveLiquidity from "./actions/SupplyReserveLiquidity";
-import BorrowObligationLiquidity from "./actions/BorrowObligationLiquidity";
+import SupplyReserveLiquidity from "./SupplyReserveLiquidity";
+import BorrowObligationLiquidity from "./BorrowObligationLiquidity";
 import { WRAPPED_SOL } from "../utils/constants";
 
 export default function Reserves({

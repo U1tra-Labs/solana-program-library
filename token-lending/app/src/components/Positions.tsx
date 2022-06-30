@@ -1,5 +1,5 @@
 import { AnchorProvider } from "@project-serum/anchor";
-import InitObligation from "./actions/InitObligation";
+import InitObligation from "./InitObligation";
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useEffect, useState, useCallback } from "react";
 import { Table } from 'react-bootstrap';
@@ -25,11 +25,11 @@ export default function Positions({
     const getUserData = useCallback(async () => {
         await Promise.all(reservesData.map(async (reserve: any) => {
             const userCollateralAta = await getAssociatedTokenAddress(reserve.data.data.collateral.mintPubkey, wallet?.publicKey!)
+            const collateralMint = await getMint(connection, reserve.data.data.collateral.mintPubkey)
+            reserve.decimals = collateralMint.decimals;
             try {    
-                const collateralMint = await getMint(connection, reserve.data.data.collateral.mintPubkey)
                 const collateralAmount = await getAccount(connection, userCollateralAta)
                 reserve.amount = Number(collateralAmount.amount)
-                reserve.decimals = collateralMint.decimals;
                 const obligation = await PublicKey.createWithSeed(
                     wallet?.publicKey!, 'obligation', LENDING_PROGRAM_ID
                 )
@@ -46,6 +46,7 @@ export default function Positions({
                 }
             } catch {
                 reserve.amount = 0
+                console.log("set amount to 0")
             }
             reserve.sourceCollateral = userCollateralAta;
             try {
@@ -62,6 +63,7 @@ export default function Positions({
             } catch {
                 reserve.lAmount = 0
             }
+            console.log(reserve)
             return (reserve)
         }))
         setData(reservesData)
@@ -75,7 +77,6 @@ export default function Positions({
     
 
     const ReserveEntry = (element: any, index: number) => {
-        
         // *1. Need to calculate Supply and Borrow APRs
         return (
             <tr key={index}>
