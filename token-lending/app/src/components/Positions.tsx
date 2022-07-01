@@ -2,7 +2,7 @@ import { AnchorProvider } from "@project-serum/anchor";
 import InitObligation from "./InitObligation";
 import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useEffect, useState, useCallback } from "react";
-import { Table } from 'react-bootstrap';
+import { Table, Form, Row, ProgressBar, Col } from 'react-bootstrap';
 import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { getAccount, getAssociatedTokenAddress, getMint } from "@solana/spl-token";
 import Loading from "./Loading";
@@ -11,70 +11,22 @@ import { parseObligation } from "../utils/state";
 
 export default function Positions({
     reservesData,
-    provider,
+    userData,
     callback
 } : {
     reservesData: any | undefined;
-    provider: AnchorProvider | undefined;
+    userData: any | undefined;
     callback?: () => Promise<void>;
 }) {
-    const [data, setData] = useState<any>(undefined);
-    const wallet = useAnchorWallet();
-    const { connection } = useConnection();
-
-    const getUserData = useCallback(async () => {
-        await Promise.all(reservesData.map(async (reserve: any) => {
-            const userCollateralAta = await getAssociatedTokenAddress(reserve.data.data.collateral.mintPubkey, wallet?.publicKey!)
-            const collateralMint = await getMint(connection, reserve.data.data.collateral.mintPubkey)
-            reserve.decimals = collateralMint.decimals;
-            try {    
-                const collateralAmount = await getAccount(connection, userCollateralAta)
-                reserve.amount = Number(collateralAmount.amount)
-                const obligation = await PublicKey.createWithSeed(
-                    wallet?.publicKey!, 'obligation', LENDING_PROGRAM_ID
-                )
-                // Add Amounts from the Obligation account (note will need a way to refresh this data without sending a program instruction)
-                const obligationInfo = await connection.getAccountInfo(obligation)
-                if (obligationInfo) {
-                    const parsedObligation = parseObligation(obligation, obligationInfo)
-                    parsedObligation?.data.deposits.map((deposit) => {
-                        if (deposit.depositReserve.toBase58() === reserve.data.pubkey.toBase58()) {
-                            reserve.amount += Number(deposit.depositedAmount)
-                        }
-                    })
-                    console.log()
-                }
-            } catch {
-                reserve.amount = 0
-                console.log("set amount to 0")
-            }
-            reserve.sourceCollateral = userCollateralAta;
-            try {
-                if (reserve.data.data.liquidity.mintPubkey.toBase58() === WRAPPED_SOL) {
-                    const balance = await connection.getBalance(wallet?.publicKey!)
-                    reserve.lAmount = (balance / LAMPORTS_PER_SOL)
-                } else {
-                    const userLiquidityAta = await getAssociatedTokenAddress(reserve.data.data.liquidity.mintPubkey, wallet?.publicKey!)
-                    const liquidityMint = await getMint(connection, reserve.data.data.liquidity.mintPubkey)
-                    const liquidityAmount = await getAccount(connection, userLiquidityAta)
-                    reserve.lAmount = Number(liquidityAmount.amount) / Math.pow(10, liquidityMint.decimals)
-                }
-                
-            } catch {
-                reserve.lAmount = 0
-            }
-            console.log(reserve)
-            return (reserve)
-        }))
-        setData(reservesData)
-        
-        
-    }, [wallet, connection, reservesData])
-
-    useEffect(() => {
-        reservesData && getUserData()
-    }, [getUserData, reservesData])
-    
+    const loanRatio = userData[0].data.data.borrowedValue / userData[0].data.data.allowedBorrowValue
+    let variant: string;
+    if (loanRatio < 0.2) {
+        variant = 'sucess'
+    } else if (loanRatio < 0.7) {
+        variant = 'warning'
+    } else {
+        variant = 'danger'
+    }
 
     const ReserveEntry = (element: any, index: number) => {
         // *1. Need to calculate Supply and Borrow APRs
@@ -97,29 +49,63 @@ export default function Positions({
 
     return(
         <div>
-            {data ? 
-                <Table hover variant='dark' className="b-1" >
-                    <thead>
-                        <tr>
-                            <th>Asset</th>
-                            <th>Supply Balance</th>
-                            <th>Supply APY</th>
-                            <th>Wallet</th>
-                            <th>Liquidity</th>
-                            <th>Operation</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {data.map((d, index) => ReserveEntry(d, index))}
-                    </tbody>
-                </Table>    
-            :
-                <Loading />
-        }
-        </div>
-        
-                
-    )
+            <Form  style={{"background":"royalBlue", "borderRadius": "10px"}} className="p-3">
+                <Row className="mb-3">
+                    <Form.Group as={Col} controlId="deposits">    
+                        <Form.Label>Value of deposits</Form.Label>
+                        <Form.Control readOnly className="text-center"
+                            defaultValue={`$${userData[0].data.data.depositedValue.toFixed(2)}`} 
+                        />
+                    </Form.Group>
+                    <Form.Group as={Col} controlId="borrowedValue">
+                        <Form.Label>Borrowed Value</Form.Label>
+                        <Form.Control readOnly className="text-center"
+                            defaultValue={`$${userData[0].data.data.borrowedValue.toFixed(2)}`}
+                        />
+                    </Form.Group>
 
-    
+                </Row>
+            
+                <Row className="mb-3">
+                    <Form.Group as={Col} controlId="allowedBorrowValue">    
+                        <Form.Label>Allowed Borrow Value</Form.Label>
+                        <Form.Control readOnly className="text-center"
+                            defaultValue={`$${userData[0].data.data.allowedBorrowValue.toFixed(2)}`} 
+                        />
+                    </Form.Group>
+                    
+                    <Form.Group as={Col} controlId="liquidationThreshold">
+                        <Form.Label>Liquidation Threshold</Form.Label>
+                        <Form.Control readOnly className="text-center"
+                            defaultValue={`$${userData[0].data.data.unhealthyBorrowValue.toFixed(2)}`}
+                        />
+                    </Form.Group>
+                </Row>
+                <Row className="m-1">
+                    <Form.Label>Loan health score</Form.Label>
+                    <ProgressBar 
+                        now={loanRatio * 100} 
+                        variant={variant} label={`${(loanRatio * 100).toFixed(0)}%`}
+                    />
+                </Row>
+            </Form>
+            
+            <br />
+            <Table hover variant='dark' className="b-1" >
+                <thead>
+                    <tr>
+                        <th>Asset</th>
+                        <th>Supply Balance</th>
+                        <th>Supply APY</th>
+                        <th>Wallet</th>
+                        <th>Liquidity</th>
+                        <th>Operation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {reservesData.map((d, index) => ReserveEntry(d, index))}
+                </tbody>
+            </Table>  
+        </div>  
+    )
 }

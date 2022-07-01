@@ -32,6 +32,7 @@ export default function Home() {
   const { connection } = useConnection();
   const [loading, setLoading] = useState<boolean>(true);
   const [reservesData, setReservesData] = useState<any>(undefined);
+  const [userData, setUserData] = useState<any>(undefined);
   const [provider, setProvider] = useState<AnchorProvider | undefined>(undefined);
 
   const anchorWallet = useMemo(() => {
@@ -58,18 +59,15 @@ export default function Home() {
       const marketData = parseLendingMarket(lendingMarketPubkey, lendingMarketInfo!)
       
       const possiblyReservesData = await getReserveAccounts()
-      console.log(possiblyReservesData.result[0].data?.data.config)
       const total_supply = (Number(possiblyReservesData.result[0].data?.data.liquidity.availableAmount) + possiblyReservesData.result[0].data!.data.liquidity.borrowedAmountWads.toNumber()) / Math.pow(10, possiblyReservesData.result[0].data!.data.liquidity.mintDecimals)
-      console.log("Here", total_supply )
       const collateralMintInfo = await getMint(connection, possiblyReservesData.result[0].data!.data.collateral.mintPubkey)
-      console.log(collateralMintInfo)
       const mint_total_supply =  Number(possiblyReservesData.result[0].data?.data.collateral.mintTotalSupply) / Math.pow(10, collateralMintInfo.decimals)
-      console.log(possiblyReservesData.result[0].data?.data)
       console.log("Exchange rate", total_supply / mint_total_supply)
       const pythClient = new pyth.PythHttpClient(connection, pyth.getPythProgramKeyForCluster("devnet"));
       const data = await pythClient.getData();
       const oracleIds = possiblyReservesData.result.map((reserve) => reserve.data?.data.liquidity.oraclePubkey.toBase58())
       const filtered = data.products.filter((product => oracleIds.includes(product.price_account)))
+      console.log("Before", possiblyReservesData.result[0].data?.data.liquidity.marketPrice.toNumber())
       possiblyReservesData.result.forEach((reserve) => {
         const symbol = filtered.filter((product) => product.price_account === reserve.data?.data.liquidity.oraclePubkey.toBase58())[0].symbol
         const price = data.productPrice.get(symbol)!.price
@@ -77,34 +75,15 @@ export default function Home() {
       });
       console.log("After", possiblyReservesData.result[0].data?.data.liquidity.marketPrice.toNumber())
       
-      const possiblyUserData = await getUserData(wallet.publicKey);
-      
-      if (possiblyUserData.result.length > 0) {
-        const userBorrows = possiblyUserData.result.map((obligation) => 
-          obligation.data?.data.borrows.map((borrow) => {
-            console.log(obligation.data)
-            const reserveInfo = possiblyReservesData.result.filter(x => x.data?.pubkey.toBase58() === borrow.borrowReserve.toBase58())  
-            return ([borrow.borrowReserve.toBase58(), borrow.borrowedAmountWads.toNumber() / Math.pow(10, reserveInfo[0].data?.data.liquidity.mintDecimals!), borrow.cumulativeBorrowRateWads.toNumber(), borrow.marketValue.toNumber()])
-        }))
-        const userDeposits = possiblyUserData.result.map((obligation) => 
-          obligation.data?.data.deposits.map((deposit) => {
-            const reserve = possiblyReservesData.result.filter(reserve => reserve.data?.pubkey.toBase58() === deposit.depositReserve.toBase58())[0]
-            const newPrice = reserve.data?.data.liquidity.marketPrice
-            console.log("Dep amount:", deposit.depositedAmount)
-            deposit!.marketValue = new BigNumber(newPrice!.toNumber() * Number(deposit.depositedAmount) / Math.pow(10, reserve.data?.data.liquidity.mintDecimals!))
-            return ([deposit.depositReserve.toBase58(), Number(deposit.depositedAmount), deposit.marketValue.toNumber()])
-        }))
-        // set the total value of deposits and borrows
-        console.log("Borrowed:", possiblyUserData.result[0].data?.data.borrowedValue.toNumber()) 
-        console.log("Deposited:", possiblyUserData.result[0].data?.data.depositedValue.toNumber())
-        console.log(userDeposits)
-        console.log(userBorrows)
+      const { possiblyUserData, updatedReservesData } = await getUserData(wallet.publicKey, possiblyReservesData.result);
+      if (possiblyUserData.length > 0) {
+        setUserData(possiblyUserData)
       } else {
         console.log("No user obligation account")
       }
       
       if (possiblyReservesData) {
-          setReservesData(possiblyReservesData.result)
+          setReservesData(updatedReservesData)
           // Code below to refresh reserve data
 
           // for (let i=0; i<possiblyReservesData.result.length; i++) {
@@ -119,11 +98,8 @@ export default function Home() {
           
       }
       console.log("Here it is:", possiblyReservesData.result[0].data?.data);
-
-        
     //   const program = await loadProgram(connection, anchorWallet);
     //   setAnchorProgram(program);
-
       setLoading(false);
     }
   }, [anchorWallet, connection, wallet]);
@@ -140,14 +116,9 @@ export default function Home() {
   return (
     <AppWrapper>
       <Header>
-        
-        
         {/* <img src="/logo.svg" alt="logo" width="50" /> */}
-        
         <Title>Ultra</Title>
-          
-            <HeaderRight>
-              
+            <HeaderRight>              
               <SocialLink
                 // href="https://discord.gg/solsanctuary"
                 target="_blank"
@@ -165,7 +136,6 @@ export default function Home() {
               {wallet && <WalletDisconnectButtonStyled />}
               {!wallet && <WalletMultiButtonStyled />}
             </HeaderRight>
-
       </Header>
       <Tabs defaultActiveKey="home" id="uncontrolled-tab-example" className="mb-3">
             
@@ -174,6 +144,7 @@ export default function Home() {
             <Body>
               <Reserves 
                 reservesData={reservesData}
+                userData={userData}
                 provider={provider}
                 callback={refetchMarkets}
               />
@@ -181,26 +152,28 @@ export default function Home() {
           ) : (
             <Body>
               {!wallet ? connect() : <Loading />}
-            </Body>
-            
+            </Body>           
           )}
         </Tab>
         <Tab eventKey="positions" title="Positions">
-          {/* Insert activate obligation account here */}
-          <Body>
-            <Positions
-              reservesData={reservesData}
-              provider={provider}
-              callback={refetchMarkets}
-            />
-          </Body>
-          
+          {!loading ? (
+            <Body>
+              <Positions
+                reservesData={reservesData}
+                userData={userData}
+                callback={refetchMarkets}
+              />
+            </Body>
+          ) : (
+            <Body>
+              {!wallet ? connect() : <Loading />}
+            </Body>
+          )}
         </Tab>
         <Tab eventKey="contact" title="Contact" disabled>
           <div>Test</div>
         </Tab>
       </Tabs>  
-
       <Footer>
         Powered by Big Dogs. <strong>WAGMI.</strong>
       </Footer>
@@ -259,7 +232,7 @@ const SocialLink = styled.a`
 `;
 
 const WalletDisconnectButtonStyled = styled(WalletDisconnectButton)`
-  background: var(--color-accent);
+  background: black;
   color: white;
   height: 40px;
   justify-content: center;
@@ -267,7 +240,7 @@ const WalletDisconnectButtonStyled = styled(WalletDisconnectButton)`
   padding: 5px;
   min-width: 150px;
   :not([disabled]):hover {
-    background: var(--color-accent-active);
+    background: #D42FB8;
   }
   i {
     display: none;
@@ -275,7 +248,7 @@ const WalletDisconnectButtonStyled = styled(WalletDisconnectButton)`
 `;
 
 const WalletMultiButtonStyled = styled(WalletMultiButton)`
-  background: var(--color-accent);
+  background: blue;
   color: white;
   height: 40px;
   justify-content: center;
@@ -283,43 +256,17 @@ const WalletMultiButtonStyled = styled(WalletMultiButton)`
   padding: 5px;
   min-width: 150px;
   :not([disabled]):hover {
-    background: var(--color-accent-active);
+    background: #D42FB8;
   }
   i {
     display: none;
   }
 `;
 
-const Hero = styled.div`
-  padding: 0px 5px;
-`;
-
 const Title = styled.div`
   color: white;
   font-weight: bold;
   font-size: 24px;
-`;
-
-const Subtitle = styled.div`
-  font-weight: bold;
-  font-style: italic;
-  font-size: 74px;
-  text-transform: uppercase;
-  @media (max-width: 800px) {
-    & {
-      font-size: 40px;
-    }
-  }
-`;
-
-const About = styled.div`
-  font-size: 18px;
-  font-weight: light;
-  margin-bottom: 32px;
-  a {
-    color: white;
-    font-weight: bold;
-  }
 `;
 
 const Footer = styled.div`

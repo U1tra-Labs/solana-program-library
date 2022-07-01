@@ -2,6 +2,8 @@ import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { LENDING_PROGRAM_ID } from '../../utils/constants';
 import { OBLIGATION_SIZE, parseLendingMarket, parseObligation, parseReserve } from '../../utils/state';
 import { useConnection, useAnchorWallet, AnchorWallet } from "@solana/wallet-adapter-react";
+import { getAssociatedTokenAddress, getMint, getAccount } from '@solana/spl-token';
+import { WRAPPED_SOL } from '../../utils/constants';
 
 const connection = new Connection('https://api.devnet.solana.com');
 const lendingMarketPubkey = new PublicKey('7T12b6nyt6vbgj1rvaW2PVvicTvsrdSY5YNNSchGTqLg')
@@ -13,7 +15,7 @@ export const getObligationData = async (obligationPubkey: PublicKey) => {
 }
 
 // this will get all reserve accounts for a given lendingMarket pubkey
-export const getUserData = async (authority: PublicKey) => {
+export const getUserData = async (authority: PublicKey, reservesData: any) => {
     const accounts = await connection.getParsedProgramAccounts(
         LENDING_PROGRAM_ID,
         {
@@ -42,7 +44,50 @@ export const getUserData = async (authority: PublicKey) => {
             getObligationData(account.pubkey)
         )
       );
-    return { result }
+      await Promise.all(reservesData.map(async (reserve: any) => {
+        const userCollateralAta = await getAssociatedTokenAddress(reserve.data.data.collateral.mintPubkey, authority)
+        const collateralMint = await getMint(connection, reserve.data.data.collateral.mintPubkey)
+        reserve.decimals = collateralMint.decimals;
+        try {    
+            const collateralAmount = await getAccount(connection, userCollateralAta)
+            reserve.amount = Number(collateralAmount.amount)
+            const obligation = await PublicKey.createWithSeed(
+                authority, 'obligation', LENDING_PROGRAM_ID
+            )
+            // Add Amounts from the Obligation account (note will need a way to refresh this data without sending a program instruction)
+            const obligationInfo = await connection.getAccountInfo(obligation)
+            if (obligationInfo) {
+                const parsedObligation = parseObligation(obligation, obligationInfo)
+                parsedObligation?.data.deposits.map((deposit) => {
+                    if (deposit.depositReserve.toBase58() === reserve.data.pubkey.toBase58()) {
+                        reserve.amount += Number(deposit.depositedAmount)
+                    }
+                })
+            }
+        } catch {
+            reserve.amount = 0
+            console.log("set amount to 0")
+        }
+        reserve.sourceCollateral = userCollateralAta;
+        try {
+            if (reserve.data.data.liquidity.mintPubkey.toBase58() === WRAPPED_SOL) {
+                const balance = await connection.getBalance(authority)
+                reserve.lAmount = (balance / LAMPORTS_PER_SOL)
+            } else {
+                const userLiquidityAta = await getAssociatedTokenAddress(reserve.data.data.liquidity.mintPubkey, authority)
+                const liquidityMint = await getMint(connection, reserve.data.data.liquidity.mintPubkey)
+                const liquidityAmount = await getAccount(connection, userLiquidityAta)
+                reserve.lAmount = Number(liquidityAmount.amount) / Math.pow(10, liquidityMint.decimals)
+            }
+            
+        } catch {
+            reserve.lAmount = 0
+        }
+        return (reserve)
+    }))
+    
+    
+    return { possiblyUserData: result, updatedReservesData: reservesData }
     
 }
 

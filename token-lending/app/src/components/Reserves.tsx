@@ -1,10 +1,9 @@
 import styled from "@emotion/styled";
 import { useAnchorWallet, useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { useCallback, useEffect, useState } from "react";
-import { Table, Container, ButtonGroup } from 'react-bootstrap';
-import { getReserveAccounts } from './actions/getReserveData';
-import { getAccount, getAssociatedTokenAddress, getMint, Mint } from "@solana/spl-token";
+import { useEffect, useState } from "react";
+import { Table, Form, ButtonGroup, Row, Col, ProgressBar } from 'react-bootstrap';
+import { getAccount, getAssociatedTokenAddress } from "@solana/spl-token";
 import { AnchorProvider } from "@project-serum/anchor";
 import SupplyReserveLiquidity from "./SupplyReserveLiquidity";
 import BorrowObligationLiquidity from "./BorrowObligationLiquidity";
@@ -12,18 +11,27 @@ import { WRAPPED_SOL } from "../utils/constants";
 
 export default function Reserves({
     reservesData,
+    userData,
     provider,
     callback
 } : {
     reservesData: any;
+    userData: any;
     provider: AnchorProvider | undefined;
     callback?: () => Promise<void>;
 }) {
     const wallet = useAnchorWallet();
     const { connection } = useConnection();
-
     const data: any = reservesData.map((reserve: any) => reserve.data)
-
+    const loanRatio = userData[0].data.data.borrowedValue / userData[0].data.data.allowedBorrowValue
+    let variant: string;
+    if (loanRatio < 0.2) {
+        variant = 'sucess'
+    } else if (loanRatio < 0.7) {
+        variant = 'warning'
+    } else {
+        variant = 'danger'
+    }
     const ReserveEntry = (element: any, index: number) => {
         const [info, setInfo] = useState<number | undefined>(undefined)
         
@@ -76,22 +84,65 @@ export default function Reserves({
     }
 
     return(
-        <Table hover variant='dark' className="b-1" >
-            <thead>
-                <tr>
-                    <th>Asset</th>
-                    <th>Supply APR</th>
-                    <th>Borrow APR</th>
-                    <th>Wallet</th>
-                    <th>Liquidity</th>
-                    <th>Operation</th>
-                </tr>
-            </thead>
-            <tbody>
-                {data.map((d, index) => ReserveEntry(d, index))}
-            </tbody>
-        </Table>
-        
+        <div>
+            <Form  style={{"background":"royalBlue", "borderRadius": "10px"}} className="p-3">
+                <Row className="mb-3">
+                    <Form.Group as={Col} controlId="deposits">    
+                        <Form.Label>Value of deposits</Form.Label>
+                        <Form.Control readOnly className="text-center"
+                            defaultValue={`$${userData[0].data.data.depositedValue.toFixed(2)}`} 
+                        />
+                    </Form.Group>
+                    <Form.Group as={Col} controlId="borrowedValue">
+                        <Form.Label>Borrowed Value</Form.Label>
+                        <Form.Control readOnly className="text-center"
+                            defaultValue={`$${userData[0].data.data.borrowedValue.toFixed(2)}`}
+                        />
+                    </Form.Group>
+
+                </Row>
+            
+                <Row className="mb-3">
+                    <Form.Group as={Col} controlId="allowedBorrowValue">    
+                        <Form.Label>Allowed Borrow Value</Form.Label>
+                        <Form.Control readOnly className="text-center"
+                            defaultValue={`$${userData[0].data.data.allowedBorrowValue.toFixed(2)}`} 
+                        />
+                    </Form.Group>
+                    
+                    <Form.Group as={Col} controlId="liquidationThreshold">
+                        <Form.Label>Liquidation Threshold</Form.Label>
+                        <Form.Control readOnly className="text-center"
+                            defaultValue={`$${userData[0].data.data.unhealthyBorrowValue.toFixed(2)}`}
+                        />
+                    </Form.Group>
+                </Row>
+                <Row className="m-1">
+                    <Form.Label>Loan health score</Form.Label>
+                    <ProgressBar 
+                        now={loanRatio * 100} 
+                        variant={variant} label={`${(loanRatio * 100).toFixed(0)}%`}
+                    />
+                </Row>
+            </Form>
+            
+            <br />
+            <Table hover variant='dark' className="b-1" >
+                <thead>
+                    <tr>
+                        <th>Asset</th>
+                        <th>Supply APR</th>
+                        <th>Borrow APR</th>
+                        <th>Wallet</th>
+                        <th>Liquidity</th>
+                        <th>Operation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {data.map((d, index) => ReserveEntry(d, index))}
+                </tbody>
+            </Table>
+        </div>
     
     
         
