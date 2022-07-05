@@ -10,6 +10,7 @@
     "@fortawesome/free-solid-svg-icons": "^6.1.1",
     "@fortawesome/react-fontawesome": "^0.1.18",
     "@holaplex/solana-web3-tools": "^0.1.8",
+    "@project-serum/anchor": "^0.25.0",
     "@pythnetwork/client": "^2.7.1",
     "@solana/buffer-layout": "^4.0.0",
     "@solana/buffer-layout-utils": "^0.2.0",
