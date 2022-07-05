@@ -1,6 +1,5 @@
 import { 
     refreshReserveInstruction, 
-    borrowObligationLiquidityInstruction, 
     refreshObligationInstruction, 
     repayObligationLiquidityInstruction
 } from "../utils/instructions";
@@ -10,7 +9,6 @@ import { AnchorProvider } from "@project-serum/anchor";
 import { 
     LAMPORTS_PER_SOL, 
     PublicKey, 
-    Transaction, 
     TransactionInstruction,
     Signer,
     Keypair,
@@ -18,10 +16,7 @@ import {
 } from "@solana/web3.js";
 import { 
     getAssociatedTokenAddress, 
-    createAssociatedTokenAccountInstruction, 
     TOKEN_PROGRAM_ID, 
-    ASSOCIATED_TOKEN_PROGRAM_ID, 
-    getOrCreateAssociatedTokenAccount, 
     createCloseAccountInstruction,
     getMinimumBalanceForRentExemptAccount, 
     ACCOUNT_SIZE,
@@ -33,7 +28,6 @@ import { SmartInstructionSender, InstructionSet } from "@holaplex/solana-web3-to
 import { useSmartSender } from '../utils/hooks';
 import { COMMITMENT, MAX_RETRIES } from "../utils/constants";
 import { parseObligation } from "../utils/state";
-import { connect } from "tls";
 
 export default function RepayObligationLiquidity({
     borrowObligation,
@@ -177,9 +171,6 @@ export default function RepayObligationLiquidity({
                     if (callback) {
                         callback();
                     }
-                })
-                .finally(() => {
-                //   setIsDisentangling(false);
                 });
         } catch (e) {
             console.log("Error", e)

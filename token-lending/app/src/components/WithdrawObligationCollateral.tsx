@@ -22,15 +22,11 @@ import { useSmartSender } from '../utils/hooks';
 import { COMMITMENT, MAX_RETRIES } from "../utils/constants";
 import { parseObligation } from "../utils/state";
 
-// main thing is the exchange rate between collateral and liquidity mints
-
 export default function WithdrawObligationCollateral({
     element,
-    deposit,
     callback
 }: {
     element: any;
-    deposit: any;
     callback?: () => Promise<void>;
 }) {
     const [show, setShow] = useState<boolean>(false);

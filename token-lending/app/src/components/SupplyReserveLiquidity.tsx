@@ -1,8 +1,18 @@
-import { refreshReserveInstruction, depositReserveLiquidityInstruction, depositObligationCollateralInstruction, refreshObligationInstruction } from "../utils/instructions";
+import { 
+    refreshReserveInstruction, 
+    depositReserveLiquidityInstruction, 
+    depositObligationCollateralInstruction, 
+    refreshObligationInstruction 
+} from "../utils/instructions";
 import { Button, Modal, InputGroup, Form, Toast } from "react-bootstrap";
 import { useState } from "react";
 import { AnchorProvider } from "@project-serum/anchor";
-import { LAMPORTS_PER_SOL, PublicKey, SystemProgram, Transaction, TransactionInstruction } from "@solana/web3.js";
+import { 
+    LAMPORTS_PER_SOL,
+    PublicKey, 
+    SystemProgram, 
+    TransactionInstruction 
+} from "@solana/web3.js";
 import { 
     getAssociatedTokenAddress, 
     createAssociatedTokenAccountInstruction, 
@@ -178,15 +188,12 @@ export default function SupplyReserveLiquidity({
 
             await sender
             .send()
-            .then(() => {
-                console.log("Transaction success");
-                if (callback) {
-                callback();
-                }
-            })
-            .finally(() => {
-            //   setIsDisentangling(false);
-            });
+                .then(() => {
+                    console.log("Transaction success");
+                    if (callback) {
+                        callback();
+                    }
+                });
         } catch (e) {
             console.log("Error", e)
         }

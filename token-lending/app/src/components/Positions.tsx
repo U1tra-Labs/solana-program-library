@@ -52,7 +52,6 @@ export default function Positions({
                         />
                         <WithdrawObligationCollateral
                             element={element.data}
-                            deposit={obligation}
                             callback={callback}
                         />
                     </ButtonGroup>
@@ -91,7 +90,7 @@ export default function Positions({
 
     return(
         <div>
-            <Form  style={{"background":"royalBlue", "borderRadius": "10px"}} className="p-3">
+            <Form style={{"background":"royalBlue", "borderRadius": "10px"}} className="p-3">
                 <Row className="mb-3">
                     <Form.Group as={Col} controlId="deposits">    
                         <Form.Label>Value of deposits</Form.Label>
@@ -174,7 +173,6 @@ export default function Positions({
                     </Table>  
                 </Card.Body>
             </Card>
-            
         </div>  
     )
 }

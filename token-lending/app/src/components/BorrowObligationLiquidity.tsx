@@ -5,16 +5,19 @@ import {
 } from "../utils/instructions";
 import { Button, Modal, InputGroup, Form, Toast } from "react-bootstrap";
 import { useState } from "react";
-import { AnchorProvider } from "@project-serum/anchor";
-import { LAMPORTS_PER_SOL, PublicKey, Transaction, TransactionInstruction } from "@solana/web3.js";
-import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getOrCreateAssociatedTokenAccount, createCloseAccountInstruction } from "@solana/spl-token";
+import { PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { 
+    getAssociatedTokenAddress, 
+    createAssociatedTokenAccountInstruction, 
+    TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, 
+    createCloseAccountInstruction 
+} from "@solana/spl-token";
 import { useConnection, useAnchorWallet, AnchorWallet } from "@solana/wallet-adapter-react";
 import { LENDING_PROGRAM_ID, WRAPPED_SOL } from "../utils/constants";
 import { SmartInstructionSender, InstructionSet } from "@holaplex/solana-web3-tools";
 import { useSmartSender } from '../utils/hooks';
 import { COMMITMENT, MAX_RETRIES } from "../utils/constants";
 import { parseObligation } from "../utils/state";
-import { connect } from "tls";
 
 export default function BorrowObligationLiquidity({
     element,

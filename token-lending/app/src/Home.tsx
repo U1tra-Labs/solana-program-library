@@ -6,7 +6,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as anchor from "@project-serum/anchor";
 import { AnchorProvider, Program } from "@project-serum/anchor";
-import { LAMPORTS_PER_SOL, PublicKey, Transaction } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import {
   useAnchorWallet,
   useConnection,
@@ -16,16 +16,13 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTwitter, faDiscord } from "@fortawesome/free-brands-svg-icons";
 import Loading from "./components/Loading";
 import Reserves from "./components/Reserves";
-import { parseLendingMarket, parseReserve } from "./utils/state";
+import { parseLendingMarket } from "./utils/state";
 import { getReserveAccounts } from "./components/actions/getReserveData";
 import { getUserData } from './components/actions/getUserData';
-import { Tabs, Tab, Row, Col } from 'react-bootstrap';
+import { Tabs, Tab } from 'react-bootstrap';
 import Positions from "./components/Positions";
-import { startPyth } from './utils/util/startPyth';
 import * as pyth from "@pythnetwork/client";
 import BigNumber from "bignumber.js";
-import { bigInt } from "@solana/buffer-layout-utils";
-import { getMint } from "@solana/spl-token";
 
 export default function Home() {
   const wallet = useAnchorWallet() as AnchorWallet;
@@ -56,7 +53,6 @@ export default function Home() {
 
       const lendingMarketPubkey = new PublicKey('7T12b6nyt6vbgj1rvaW2PVvicTvsrdSY5YNNSchGTqLg')
       const lendingMarketInfo = await connection.getAccountInfo(lendingMarketPubkey)
-      const marketData = parseLendingMarket(lendingMarketPubkey, lendingMarketInfo!)
       
       const possiblyReservesData = await getReserveAccounts();
       const pythClient = new pyth.PythHttpClient(connection, pyth.getPythProgramKeyForCluster("devnet"));

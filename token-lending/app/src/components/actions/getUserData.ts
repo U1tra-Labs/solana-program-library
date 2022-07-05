@@ -1,7 +1,6 @@
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { COMMITMENT, LENDING_PROGRAM_ID } from '../../utils/constants';
-import { OBLIGATION_SIZE, parseLendingMarket, parseObligation, parseReserve } from '../../utils/state';
-import { useConnection, useAnchorWallet, AnchorWallet } from "@solana/wallet-adapter-react";
+import { OBLIGATION_SIZE, parseObligation } from '../../utils/state';
 import { getAssociatedTokenAddress, getMint, getAccount } from '@solana/spl-token';
 import { WRAPPED_SOL } from '../../utils/constants';
 
