@@ -83,7 +83,6 @@ export default function Positions({
                             callback={callback}
                             provider={provider}
                         />
-                        
                     </ButtonGroup>
                 </td>
             </tr>
