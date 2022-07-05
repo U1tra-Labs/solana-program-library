@@ -25,7 +25,7 @@ export default function Reserves({
     const loanRatio = userData[0].data.data.borrowedValue / userData[0].data.data.allowedBorrowValue
     let variant: string;
     if (loanRatio < 0.2) {
-        variant = 'sucess'
+        variant = 'success'
     } else if (loanRatio < 0.7) {
         variant = 'warning'
     } else {
