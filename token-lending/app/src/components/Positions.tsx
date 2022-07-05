@@ -1,22 +1,21 @@
-import { AnchorProvider } from "@project-serum/anchor";
+
 import InitObligation from "./InitObligation";
-import { useAnchorWallet, useConnection } from "@solana/wallet-adapter-react";
-import { useEffect, useState, useCallback } from "react";
-import { Table, Form, Row, ProgressBar, Col } from 'react-bootstrap';
-import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
-import { getAccount, getAssociatedTokenAddress, getMint } from "@solana/spl-token";
-import Loading from "./Loading";
-import { LENDING_PROGRAM_ID, WRAPPED_SOL } from "../utils/constants";
-import { parseObligation } from "../utils/state";
+import { Table, Form, Row, ProgressBar, Col, Card, ButtonGroup } from 'react-bootstrap';
+import SupplyReserveLiquidity from "./SupplyReserveLiquidity";
+import BorrowObligationLiquidity from "./BorrowObligationLiquidity";
+import RepayObligationLiquidity from "./RepayObligationLiquidity";
+import { AnchorProvider } from "@project-serum/anchor";
 
 export default function Positions({
     reservesData,
     userData,
-    callback
+    callback,
+    provider
 } : {
     reservesData: any | undefined;
     userData: any | undefined;
     callback?: () => Promise<void>;
+    provider: AnchorProvider;
 }) {
     const loanRatio = userData[0].data.data.borrowedValue / userData[0].data.data.allowedBorrowValue
     let variant: string;
@@ -36,12 +35,40 @@ export default function Positions({
                 <td>{(element.amount/ Math.pow(10, element.decimals)).toFixed(2)}</td> 
                 <td>*1</td> 
                 <td>{element.lAmount.toFixed(2)}</td> 
-                <td>{(Number(element.data.data.liquidity.availableAmount) / Math.pow(10, element.data.data.liquidity.mintDecimals)).toFixed(2)}</td>
                 <td>
                     <InitObligation 
                         reserve={element}
                         callback={callback}
                     />
+                </td>
+            </tr>
+        ) 
+    }
+
+    const BorrowEntry = (element: any, index: number) => {
+        // *1. Need to calculate Supply and Borrow APRs
+        const reserve = reservesData.filter((reserve) => reserve.data.pubkey.toBase58() === element.borrowReserve.toBase58())
+        return (
+            <tr key={index}>
+                <td>SOL</td>
+                <td>{(element.borrowedAmountWads.toNumber() / Math.pow(10, reserve[0].decimals)).toFixed(2)}</td> 
+                <td>*1</td> 
+                <td>{reserve[0].lAmount.toFixed(2)}</td> 
+                <td>{(Number(reserve[0].data.data.liquidity.availableAmount) / Math.pow(10, reserve[0].data.data.liquidity.mintDecimals)).toFixed(2)}</td>
+                <td>
+                    <ButtonGroup>
+                        <BorrowObligationLiquidity
+                            element={reserve[0].data}
+                            callback={callback}
+                        />
+                        <RepayObligationLiquidity
+                            borrowObligation={element}
+                            reserve={reserve[0].data}
+                            callback={callback}
+                            provider={provider}
+                        />
+                        
+                    </ButtonGroup>
                 </td>
             </tr>
         ) 
@@ -91,21 +118,47 @@ export default function Positions({
             </Form>
             
             <br />
-            <Table hover variant='dark' className="b-1" >
-                <thead>
-                    <tr>
-                        <th>Asset</th>
-                        <th>Supply Balance</th>
-                        <th>Supply APY</th>
-                        <th>Wallet</th>
-                        <th>Liquidity</th>
-                        <th>Operation</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {reservesData.map((d, index) => ReserveEntry(d, index))}
-                </tbody>
-            </Table>  
+            <Card bg='dark'>
+                <Card.Header>My deposits</Card.Header>
+                <Card.Body>
+                    <Table hover variant='dark' className="b-1" >
+                        <thead>
+                            <tr>
+                                <th>Asset</th>
+                                <th>Supply Balance</th>
+                                <th>Supply APY</th>
+                                <th>Wallet</th>
+                                <th>Operation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {reservesData.filter((reserve: any) => reserve.amount > 0).map((d: any, index: number) => ReserveEntry(d, index))}
+                        </tbody>
+                    </Table>  
+                </Card.Body>
+            </Card>
+            <br />
+            <Card bg='dark'>
+                <Card.Header>My borrows</Card.Header>
+                <Card.Body>
+                    <Table hover variant='dark' className="b-1" >
+                        <thead>
+                            <tr>
+                                <th>Asset</th>
+                                <th>Borrow Balance</th>
+                                <th>Borrow APR</th>
+                                <th>Wallet</th>
+                                <th>Liquidity</th>
+                                <th>Operation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {userData[0].data.data.borrows.filter((borrow: any) => borrow.borrowedAmountWads > 0).map((d: any, index: number) => BorrowEntry(d, index))}
+                        </tbody>
+                    </Table>  
+                </Card.Body>
+            </Card>
+            
         </div>  
     )
 }

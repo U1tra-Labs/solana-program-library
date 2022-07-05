@@ -71,7 +71,6 @@ export default function Reserves({
                             />
                             <BorrowObligationLiquidity
                                 element={element}
-                                provider={provider}
                                 callback={callback}
                             />
                         </ButtonGroup>

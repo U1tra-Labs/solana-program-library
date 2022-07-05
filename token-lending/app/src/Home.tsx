@@ -58,7 +58,7 @@ export default function Home() {
       const lendingMarketInfo = await connection.getAccountInfo(lendingMarketPubkey)
       const marketData = parseLendingMarket(lendingMarketPubkey, lendingMarketInfo!)
       
-      const possiblyReservesData = await getReserveAccounts()
+      const possiblyReservesData = await getReserveAccounts();
       const total_supply = (Number(possiblyReservesData.result[0].data?.data.liquidity.availableAmount) + possiblyReservesData.result[0].data!.data.liquidity.borrowedAmountWads.toNumber()) / Math.pow(10, possiblyReservesData.result[0].data!.data.liquidity.mintDecimals)
       const collateralMintInfo = await getMint(connection, possiblyReservesData.result[0].data!.data.collateral.mintPubkey)
       const mint_total_supply =  Number(possiblyReservesData.result[0].data?.data.collateral.mintTotalSupply) / Math.pow(10, collateralMintInfo.decimals)
@@ -71,11 +71,13 @@ export default function Home() {
       possiblyReservesData.result.forEach((reserve) => {
         const symbol = filtered.filter((product) => product.price_account === reserve.data?.data.liquidity.oraclePubkey.toBase58())[0].symbol
         const price = data.productPrice.get(symbol)!.price
+        console.log("Price:", price)
         reserve!.data!.data.liquidity.marketPrice = new BigNumber(price!);
       });
       console.log("After", possiblyReservesData.result[0].data?.data.liquidity.marketPrice.toNumber())
       
       const { possiblyUserData, updatedReservesData } = await getUserData(wallet.publicKey, possiblyReservesData.result);
+      console.log("Borrowed value:", possiblyUserData[0].data?.data.borrowedValue.toNumber())
       if (possiblyUserData.length > 0) {
         setUserData(possiblyUserData)
       } else {
@@ -162,6 +164,7 @@ export default function Home() {
                 reservesData={reservesData}
                 userData={userData}
                 callback={refetchMarkets}
+                provider={provider!}
               />
             </Body>
           ) : (

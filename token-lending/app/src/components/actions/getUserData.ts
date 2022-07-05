@@ -1,5 +1,5 @@
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { LENDING_PROGRAM_ID } from '../../utils/constants';
+import { COMMITMENT, LENDING_PROGRAM_ID } from '../../utils/constants';
 import { OBLIGATION_SIZE, parseLendingMarket, parseObligation, parseReserve } from '../../utils/state';
 import { useConnection, useAnchorWallet, AnchorWallet } from "@solana/wallet-adapter-react";
 import { getAssociatedTokenAddress, getMint, getAccount } from '@solana/spl-token';
@@ -9,7 +9,7 @@ const connection = new Connection('https://api.devnet.solana.com');
 const lendingMarketPubkey = new PublicKey('7T12b6nyt6vbgj1rvaW2PVvicTvsrdSY5YNNSchGTqLg')
 
 export const getObligationData = async (obligationPubkey: PublicKey) => {
-    const obligationInfo = await connection.getAccountInfo(obligationPubkey)
+    const obligationInfo = await connection.getAccountInfo(obligationPubkey, COMMITMENT)
     const data = parseObligation(obligationPubkey, obligationInfo!)
     return { data }
 }
