@@ -1,31 +1,19 @@
 import { 
     refreshReserveInstruction, 
-    borrowObligationLiquidityInstruction, 
     refreshObligationInstruction, 
-    repayObligationLiquidityInstruction
+    withdrawObligationCollateralInstruction,
+    redeemReserveCollateralInstruction
 } from "../utils/instructions";
 import { Button, Modal, InputGroup, Form, Toast } from "react-bootstrap";
 import { useState } from "react";
-import { AnchorProvider } from "@project-serum/anchor";
-import { 
-    LAMPORTS_PER_SOL, 
-    PublicKey, 
-    Transaction, 
-    TransactionInstruction,
-    Signer,
-    Keypair,
-    SystemProgram
-} from "@solana/web3.js";
+import { PublicKey, TransactionInstruction } from "@solana/web3.js";
 import { 
     getAssociatedTokenAddress, 
     createAssociatedTokenAccountInstruction, 
     TOKEN_PROGRAM_ID, 
     ASSOCIATED_TOKEN_PROGRAM_ID, 
-    getOrCreateAssociatedTokenAccount, 
-    createCloseAccountInstruction,
-    getMinimumBalanceForRentExemptAccount, 
-    ACCOUNT_SIZE,
-    createInitializeAccountInstruction
+    createCloseAccountInstruction, 
+    getMint
 } from "@solana/spl-token";
 import { useConnection, useAnchorWallet, AnchorWallet } from "@solana/wallet-adapter-react";
 import { LENDING_PROGRAM_ID, WRAPPED_SOL } from "../utils/constants";
@@ -33,18 +21,17 @@ import { SmartInstructionSender, InstructionSet } from "@holaplex/solana-web3-to
 import { useSmartSender } from '../utils/hooks';
 import { COMMITMENT, MAX_RETRIES } from "../utils/constants";
 import { parseObligation } from "../utils/state";
-import { connect } from "tls";
 
-export default function RepayObligationLiquidity({
-    borrowObligation,
-    reserve,
-    callback,
-    provider
+// main thing is the exchange rate between collateral and liquidity mints
+
+export default function WithdrawObligationCollateral({
+    element,
+    deposit,
+    callback
 }: {
-    borrowObligation: any;
-    reserve: any;
+    element: any;
+    deposit: any;
     callback?: () => Promise<void>;
-    provider: AnchorProvider;
 }) {
     const [show, setShow] = useState<boolean>(false);
     const [showPopup, setShowPopup] = useState<boolean>(false);
@@ -56,45 +43,31 @@ export default function RepayObligationLiquidity({
     const wallet = useAnchorWallet() as AnchorWallet;
     const { failureCallback } = useSmartSender();
 
-    const repayObligation = async(element: any, reserve: any) => {
-
+    const calculateMax = async(element: any) => {
         const obligation = await PublicKey.createWithSeed(
             wallet.publicKey, 'obligation', LENDING_PROGRAM_ID
         )
-        console.log("Liquidity supply pubkey", reserve.data.liquidity.feeReceiver.toBase58())
         const obligationInfo = await connection.getAccountInfo(obligation)
         const parsedObligation = parseObligation(obligation, obligationInfo!);
 
+        const maxWithdrawValue = (parsedObligation!.data.allowedBorrowValue.toNumber() - parsedObligation!.data.borrowedValue.toNumber()) / (element.data.config.loanToValueRatio / 100)
+        const maxWithdrawalUnits = maxWithdrawValue / element.data.liquidity.marketPrice
+        setAmount(maxWithdrawalUnits)
+    }
+
+    const withdrawObligation = async(element: any) => {
+        const obligation = await PublicKey.createWithSeed(
+            wallet.publicKey, 'obligation', LENDING_PROGRAM_ID
+        )
+        const obligationInfo = await connection.getAccountInfo(obligation)
+        const parsedObligation = parseObligation(obligation, obligationInfo!);
+        
+        const collateralMint = await getMint(connection, element.data.collateral.mintPubkey)
+
         const instructions: TransactionInstruction[] = [];
-        const signers: Signer[] = [];
-        let sourceLiquidity: PublicKey; 
-        if (reserve.data?.liquidity.mintPubkey.toBase58() === WRAPPED_SOL) {
-            const lamports = await getMinimumBalanceForRentExemptAccount(connection) + amount! * LAMPORTS_PER_SOL
-            const sourceAccount = Keypair.generate();
-            sourceLiquidity = sourceAccount.publicKey;
-            const createWrappedSolAccIx = SystemProgram.createAccount({
-                fromPubkey: wallet?.publicKey!,
-                newAccountPubkey: sourceLiquidity,
-                lamports,
-                space: ACCOUNT_SIZE,
-                programId: TOKEN_PROGRAM_ID,
-            });
-            instructions.push(createWrappedSolAccIx);
-            signers.push(sourceAccount)
-            const initializeWrappedSolAccIx = createInitializeAccountInstruction(
-                sourceLiquidity,
-                reserve.data?.liquidity.mintPubkey,
-                wallet.publicKey,
-                TOKEN_PROGRAM_ID
-            );
-            instructions.push(initializeWrappedSolAccIx);
-        } else {
-            sourceLiquidity = await getAssociatedTokenAddress(reserve.data?.liquidity.mintPubkey, wallet.publicKey!);
-        };
-
-        const refreshIx = refreshReserveInstruction(reserve.pubkey!, reserve.data?.liquidity.oraclePubkey!);
+        const refreshIx = refreshReserveInstruction(element.pubkey!, element.data?.liquidity.oraclePubkey!);
         instructions.push(refreshIx);
-
+        
         const deposits = parsedObligation?.data.deposits.map((deposit => deposit.depositReserve));
         const borrows: PublicKey[] | undefined = parsedObligation?.data.borrows.map((borrow => borrow.borrowReserve));
         
@@ -103,37 +76,73 @@ export default function RepayObligationLiquidity({
             deposits!,
             borrows!
         );
-        instructions.push(refreshObligationIx)
+        instructions.push(refreshObligationIx);
+
+        const [lendingMarketAuthority] = await PublicKey.findProgramAddress([element.data?.lendingMarket.toBuffer()], LENDING_PROGRAM_ID)
         
-        const repayObligationIx = repayObligationLiquidityInstruction(
-            amount! * Math.pow(10, reserve.data.liquidity.mintDecimals),
-            sourceLiquidity,
-            reserve.data.liquidity.supplyPubkey,
-            reserve.pubkey,
+        const destinationCollateral = await getAssociatedTokenAddress(element.data?.collateral.mintPubkey, wallet.publicKey!);
+        const destinationCollateralInfo = await connection.getAccountInfo(destinationCollateral)
+        if (!destinationCollateralInfo) {
+            const createAtaIx = createAssociatedTokenAccountInstruction(
+                wallet?.publicKey!,
+                destinationCollateral,
+                wallet?.publicKey!,
+                element.data?.collateral.mintPubkey,
+                TOKEN_PROGRAM_ID,
+                ASSOCIATED_TOKEN_PROGRAM_ID
+            );
+            instructions.push(createAtaIx);
+        }
+
+        const withdrawCollateralIx = withdrawObligationCollateralInstruction(
+            Math.floor(amount! * Math.pow(10, collateralMint.decimals)),
+            element.data.collateral.supplyPubkey,
+            destinationCollateral,
+            element.pubkey, // borrowReserve
             obligation,
-            reserve.data.lendingMarket,
-            wallet.publicKey
+            element.data?.lendingMarket,
+            lendingMarketAuthority,
+            wallet?.publicKey!
         )
         
-        instructions.push(repayObligationIx);
+        instructions.push(withdrawCollateralIx);
         instructions.push(refreshIx);
-        const exists = borrows?.some(pubkey => pubkey.toBase58() === reserve.pubkey.toBase58())
-        if (!exists) {
-            borrows!.push(element.pubkey)
-            console.log(borrows)
-        }
         
-        const refreshObligationIx2 = refreshObligationInstruction(
-            obligation,
-            deposits!,
-            borrows!
-        );
-        instructions.push(refreshObligationIx2);
+        const destinationLiquidity = await getAssociatedTokenAddress(element.data?.liquidity.mintPubkey, wallet.publicKey!);
+        const destinationLiquidityInfo = await connection.getAccountInfo(destinationLiquidity)
+        if (!destinationLiquidityInfo) {
+            const createAtaIx = createAssociatedTokenAccountInstruction(
+                wallet?.publicKey!,
+                destinationLiquidity,
+                wallet?.publicKey!,
+                element.data?.liquidity.mintPubkey,
+                TOKEN_PROGRAM_ID,
+                ASSOCIATED_TOKEN_PROGRAM_ID
+            );
+            instructions.push(createAtaIx);
+        }
+
+        const redeemReserveCollateralIx = redeemReserveCollateralInstruction(
+            Math.floor(amount! * Math.pow(10, collateralMint.decimals)),
+            destinationCollateral,
+            destinationLiquidity,
+            element.pubkey,
+            element.data.collateral.mintPubkey,
+            element.data.liquidity.supplyPubkey,
+            element.data?.lendingMarket,
+            lendingMarketAuthority,
+            wallet?.publicKey
+        )
+
+        instructions.push(redeemReserveCollateralIx);
+        instructions.push(refreshIx);
+        instructions.push(refreshObligationIx);
+        
         if (element.data?.liquidity.mintPubkey.toBase58() === WRAPPED_SOL) {
             
             instructions.push(
                 createCloseAccountInstruction(
-                    sourceLiquidity,
+                    destinationLiquidity,
                     wallet.publicKey,
                     wallet.publicKey,
                     [],
@@ -141,19 +150,19 @@ export default function RepayObligationLiquidity({
                 )
             );
         }
-        console.log("We repaying it", amount)
+        console.log("We withdrawing it", amount)
 
         try {
             const instructionGroups: InstructionSet[] = [
                 {
                   instructions,
-                  signers,
+                  signers: [],
                 },
               ];
       
             const sender = SmartInstructionSender.build(
-                wallet,
-                connection
+            wallet,
+            connection
             )
             .config({
                 maxSigningAttempts: MAX_RETRIES,
@@ -171,15 +180,12 @@ export default function RepayObligationLiquidity({
             });
 
             await sender
-                .send()
+            .send()
                 .then(() => {
                     console.log("Transaction success");
                     if (callback) {
                         callback();
                     }
-                })
-                .finally(() => {
-                //   setIsDisentangling(false);
                 });
         } catch (e) {
             console.log("Error", e)
@@ -192,17 +198,17 @@ export default function RepayObligationLiquidity({
             <Button 
                 variant="primary"
                 onClick={handleShow}
-            >Repay</Button>
+            >Withdraw</Button>
             <Toast onClose={() => setShowPopup(false)} show={showPopup} delay={3000} bg='info' autohide>
                 <Toast.Header>
                     <strong className="me-auto">Bootstrap</strong>
                     <small>11 mins ago</small>
                 </Toast.Header>
-                <Toast.Body className="text-white">Repay processed succesfully!</Toast.Body>
+                <Toast.Body className="text-white">Withdraw processed succesfully!</Toast.Body>
             </Toast>
             <Modal show={show} onHide={handleClose}>
                 <Modal.Header closeButton>
-                <Modal.Title>Enter amount to repay</Modal.Title>
+                <Modal.Title>Enter amount to withdraw</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
                     <InputGroup className="mb-3">
@@ -214,15 +220,21 @@ export default function RepayObligationLiquidity({
                                 setAmount(Number(event.target.value))
                             })}
                             value={amount ? amount : ""}
-                        />
+                        /> 
+                        <Button 
+                            variant='outline-dark'
+                            onClick={() => calculateMax(element)}
+                        >
+                            MAX
+                        </Button> 
                     </InputGroup>
                 </Modal.Body>
                 <Modal.Footer>
                 <Button variant="secondary" onClick={handleClose}>
                     Close
                 </Button>
-                <Button variant="primary" onClick={() => repayObligation(borrowObligation, reserve)}>
-                    Repay
+                <Button variant="primary" onClick={() => withdrawObligation(element)}>
+                    Withdraw
                 </Button>
                 </Modal.Footer>
             </Modal>

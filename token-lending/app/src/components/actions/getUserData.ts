@@ -55,7 +55,7 @@ export const getUserData = async (authority: PublicKey, reservesData: any) => {
                 authority, 'obligation', LENDING_PROGRAM_ID
             )
             // Add Amounts from the Obligation account (note will need a way to refresh this data without sending a program instruction)
-            const obligationInfo = await connection.getAccountInfo(obligation)
+            const obligationInfo = await connection.getAccountInfo(obligation, COMMITMENT)
             if (obligationInfo) {
                 const parsedObligation = parseObligation(obligation, obligationInfo)
                 parsedObligation?.data.deposits.map((deposit) => {
@@ -71,12 +71,12 @@ export const getUserData = async (authority: PublicKey, reservesData: any) => {
         reserve.sourceCollateral = userCollateralAta;
         try {
             if (reserve.data.data.liquidity.mintPubkey.toBase58() === WRAPPED_SOL) {
-                const balance = await connection.getBalance(authority)
+                const balance = await connection.getBalance(authority, COMMITMENT)
                 reserve.lAmount = (balance / LAMPORTS_PER_SOL)
             } else {
                 const userLiquidityAta = await getAssociatedTokenAddress(reserve.data.data.liquidity.mintPubkey, authority)
                 const liquidityMint = await getMint(connection, reserve.data.data.liquidity.mintPubkey)
-                const liquidityAmount = await getAccount(connection, userLiquidityAta)
+                const liquidityAmount = await getAccount(connection, userLiquidityAta, COMMITMENT)
                 reserve.lAmount = Number(liquidityAmount.amount) / Math.pow(10, liquidityMint.decimals)
             }
             

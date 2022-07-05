@@ -4,6 +4,7 @@ import { Table, Form, Row, ProgressBar, Col, Card, ButtonGroup } from 'react-boo
 import SupplyReserveLiquidity from "./SupplyReserveLiquidity";
 import BorrowObligationLiquidity from "./BorrowObligationLiquidity";
 import RepayObligationLiquidity from "./RepayObligationLiquidity";
+import WithdrawObligationCollateral from "./WithdrawObligationCollateral";
 import { AnchorProvider } from "@project-serum/anchor";
 
 export default function Positions({
@@ -20,7 +21,7 @@ export default function Positions({
     const loanRatio = userData[0].data.data.borrowedValue / userData[0].data.data.allowedBorrowValue
     let variant: string;
     if (loanRatio < 0.2) {
-        variant = 'sucess'
+        variant = 'success'
     } else if (loanRatio < 0.7) {
         variant = 'warning'
     } else {
@@ -29,6 +30,7 @@ export default function Positions({
 
     const ReserveEntry = (element: any, index: number) => {
         // *1. Need to calculate Supply and Borrow APRs
+        const obligation = userData[0].data.data.deposits.filter((deposit) => deposit.depositReserve.toBase58() === element.data.pubkey.toBase58())
         return (
             <tr key={index}>
                 <td>SOL</td>
@@ -40,6 +42,20 @@ export default function Positions({
                         reserve={element}
                         callback={callback}
                     />
+                </td>
+                <td>
+                    <ButtonGroup>
+                        <SupplyReserveLiquidity
+                            element={element.data}
+                            provider={provider}
+                            callback={callback}
+                        />
+                        <WithdrawObligationCollateral
+                            element={element.data}
+                            deposit={obligation}
+                            callback={callback}
+                        />
+                    </ButtonGroup>
                 </td>
             </tr>
         ) 
@@ -128,6 +144,7 @@ export default function Positions({
                                 <th>Supply Balance</th>
                                 <th>Supply APY</th>
                                 <th>Wallet</th>
+                                <th>Collateral</th>
                                 <th>Operation</th>
                             </tr>
                         </thead>

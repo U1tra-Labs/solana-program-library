@@ -113,7 +113,9 @@ export default function SupplyReserveLiquidity({
         
         instructions.push(depositReserveIx);
         instructions.push(refreshIx);
-        
+
+        const exchangeRate = Number(element.data.collateral.mintTotalSupply) / (Number(element.data.liquidity.availableAmount) + Number(element.data.liquidity.borrowedAmountWads))
+        const collateralAmount = amount! * exchangeRate
         // If an obligation account exists, deposit collateral straight up
         const obligation = await PublicKey.createWithSeed(
             wallet.publicKey, 'obligation', LENDING_PROGRAM_ID
@@ -121,7 +123,7 @@ export default function SupplyReserveLiquidity({
         const obligationInfo = await connection.getAccountInfo(obligation)
         if (obligationInfo) {
             const depositObligationCollateralIx: TransactionInstruction = depositObligationCollateralInstruction(
-                amount! * Math.pow(10, element.data.liquidity.mintDecimals),
+                Math.floor(collateralAmount * Math.pow(10, element.data.liquidity.mintDecimals)),
                 destinationCollateral,
                 element.data.collateral.supplyPubkey,
                 element.pubkey,

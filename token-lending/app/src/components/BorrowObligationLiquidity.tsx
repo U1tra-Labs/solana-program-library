@@ -34,19 +34,12 @@ export default function BorrowObligationLiquidity({
     const { failureCallback } = useSmartSender();
 
     const borrowObligation = async(element: any) => {
-        
-        console.log(element)
 
         const obligation = await PublicKey.createWithSeed(
             wallet.publicKey, 'obligation', LENDING_PROGRAM_ID
         )
-        console.log("Liquidity supply pubkey", element.data.liquidity.feeReceiver.toBase58())
         const obligationInfo = await connection.getAccountInfo(obligation)
         const parsedObligation = parseObligation(obligation, obligationInfo!);
-        console.log(parsedObligation?.data)
-        console.log(parsedObligation?.data.allowedBorrowValue.toNumber())
-        console.log(parsedObligation?.data.depositedValue.toNumber())
-        console.log(parsedObligation?.data.unhealthyBorrowValue.toNumber())
         
         const instructions: TransactionInstruction[] = [];
         const refreshIx = refreshReserveInstruction(element.pubkey!, element.data?.liquidity.oraclePubkey!);
@@ -133,17 +126,11 @@ export default function BorrowObligationLiquidity({
             .config({
                 maxSigningAttempts: MAX_RETRIES,
                 abortOnFailure: true,
-                commitment: 'finalized',
+                commitment: COMMITMENT,
             })
             .withInstructionSets(instructionGroups)
-            .onProgress(async(_ind, txId) => {
+            .onProgress((_ind, txId) => {
                 console.log("Transaction sent successfully:", txId);
-                const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-                await connection.confirmTransaction({
-                    signature: txId, 
-                    blockhash, 
-                    lastValidBlockHeight
-                }, 'finalized');
             })
             .onFailure(failureCallback)
             .onReSign((attempt, i) => {
@@ -153,15 +140,12 @@ export default function BorrowObligationLiquidity({
 
             await sender
             .send()
-            .then(() => {
-                console.log("Transaction success");
-                if (callback) {
-                callback();
-                }
-            })
-            .finally(() => {
-            //   setIsDisentangling(false);
-            });
+                .then(() => {
+                    console.log("Transaction success");
+                    if (callback) {
+                        callback();
+                    }
+                });
         } catch (e) {
             console.log("Error", e)
         }
