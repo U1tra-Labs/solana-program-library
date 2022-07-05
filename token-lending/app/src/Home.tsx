@@ -161,9 +161,9 @@ export default function Home() {
             </Body>
           )}
         </Tab>
-        <Tab eventKey="contact" title="Contact" disabled>
+        {/* <Tab eventKey="contact" title="Contact" disabled>
           <div>Test</div>
-        </Tab>
+        </Tab> */}
       </Tabs>  
       <Footer>
         Powered by Big Dogs. <strong>WAGMI.</strong>
