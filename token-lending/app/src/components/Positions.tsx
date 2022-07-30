@@ -1,5 +1,6 @@
 
 import InitObligation from "./InitObligation";
+import React from "react";
 import { Table, Form, Row, ProgressBar, Col, Card, ButtonGroup } from 'react-bootstrap';
 import SupplyReserveLiquidity from "./SupplyReserveLiquidity";
 import BorrowObligationLiquidity from "./BorrowObligationLiquidity";
@@ -18,7 +19,7 @@ export default function Positions({
     callback?: () => Promise<void>;
     provider: AnchorProvider;
 }) {
-    const loanRatio = userData[0].data.data.borrowedValue / userData[0].data.data.allowedBorrowValue
+    const loanRatio = userData[0] ? userData[0].data.data.borrowedValue / userData[0].data.data.allowedBorrowValue : 0
     let variant: string;
     if (loanRatio < 0.2) {
         variant = 'success'
@@ -30,7 +31,6 @@ export default function Positions({
 
     const ReserveEntry = (element: any, index: number) => {
         // *1. Need to calculate Supply and Borrow APRs
-        const obligation = userData[0].data.data.deposits.filter((deposit) => deposit.depositReserve.toBase58() === element.data.pubkey.toBase58())
         return (
             <tr key={index}>
                 <td>SOL</td>
@@ -95,13 +95,13 @@ export default function Positions({
                     <Form.Group as={Col} controlId="deposits">    
                         <Form.Label>Value of deposits</Form.Label>
                         <Form.Control readOnly className="text-center"
-                            defaultValue={`$${userData[0].data.data.depositedValue.toFixed(2)}`} 
+                            defaultValue={`$${userData[0] ? userData[0].data.data.depositedValue.toFixed(2) : 0}`} 
                         />
                     </Form.Group>
                     <Form.Group as={Col} controlId="borrowedValue">
                         <Form.Label>Borrowed Value</Form.Label>
                         <Form.Control readOnly className="text-center"
-                            defaultValue={`$${userData[0].data.data.borrowedValue.toFixed(2)}`}
+                            defaultValue={`$${userData[0] ? userData[0].data.data.borrowedValue.toFixed(2) : 0}`}
                         />
                     </Form.Group>
 
@@ -111,14 +111,14 @@ export default function Positions({
                     <Form.Group as={Col} controlId="allowedBorrowValue">    
                         <Form.Label>Allowed Borrow Value</Form.Label>
                         <Form.Control readOnly className="text-center"
-                            defaultValue={`$${userData[0].data.data.allowedBorrowValue.toFixed(2)}`} 
+                            defaultValue={`$${userData[0] ? userData[0].data.data.allowedBorrowValue.toFixed(2) : 0}`} 
                         />
                     </Form.Group>
                     
                     <Form.Group as={Col} controlId="liquidationThreshold">
                         <Form.Label>Liquidation Threshold</Form.Label>
                         <Form.Control readOnly className="text-center"
-                            defaultValue={`$${userData[0].data.data.unhealthyBorrowValue.toFixed(2)}`}
+                            defaultValue={`$${userData[0] ? userData[0].data.data.unhealthyBorrowValue.toFixed(2) : 0}`}
                         />
                     </Form.Group>
                 </Row>
@@ -168,7 +168,7 @@ export default function Positions({
                             </tr>
                         </thead>
                         <tbody>
-                            {userData[0].data.data.borrows.filter((borrow: any) => borrow.borrowedAmountWads > 0).map((d: any, index: number) => BorrowEntry(d, index))}
+                            {userData[0] && userData[0].data.data.borrows.filter((borrow: any) => borrow.borrowedAmountWads > 0).map((d: any, index: number) => BorrowEntry(d, index))}
                         </tbody>
                     </Table>  
                 </Card.Body>

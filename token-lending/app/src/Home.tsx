@@ -3,6 +3,7 @@ import {
   WalletMultiButton,
   WalletDisconnectButton,
 } from "@solana/wallet-adapter-react-ui";
+import React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as anchor from "@project-serum/anchor";
 import { AnchorProvider, Program } from "@project-serum/anchor";
@@ -70,6 +71,7 @@ export default function Home() {
         setUserData(possiblyUserData)
       } else {
         console.log("No user obligation account")
+        setUserData([]);
       }
       
       if (possiblyReservesData) {

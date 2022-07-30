@@ -1,5 +1,6 @@
 import { useAnchorWallet, useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+import React from "react";
 import { useEffect, useState } from "react";
 import { Table, Form, ButtonGroup, Row, Col, ProgressBar } from 'react-bootstrap';
 import { getAccount, getAssociatedTokenAddress } from "@solana/spl-token";
@@ -22,7 +23,12 @@ export default function Reserves({
     const wallet = useAnchorWallet();
     const { connection } = useConnection();
     const data: any = reservesData.map((reserve: any) => reserve.data)
-    const loanRatio = userData[0].data.data.borrowedValue / userData[0].data.data.allowedBorrowValue
+    let loanRatio;
+    try {
+        loanRatio = userData[0].data.data.borrowedValue / userData[0].data.data.allowedBorrowValue
+    } catch (e) {
+        loanRatio = 0.5
+    }
     let variant: string;
     if (loanRatio < 0.2) {
         variant = 'success'
@@ -78,7 +84,6 @@ export default function Reserves({
                 </tr>
             )
         }
-        
     }
 
     return(
@@ -88,13 +93,13 @@ export default function Reserves({
                     <Form.Group as={Col} controlId="deposits">    
                         <Form.Label>Value of deposits</Form.Label>
                         <Form.Control readOnly className="text-center"
-                            defaultValue={`$${userData[0].data.data.depositedValue.toFixed(2)}`} 
+                            defaultValue={`$${userData[0] ? userData[0].data.data.depositedValue.toFixed(2) : 0}`} 
                         />
                     </Form.Group>
                     <Form.Group as={Col} controlId="borrowedValue">
                         <Form.Label>Borrowed Value</Form.Label>
                         <Form.Control readOnly className="text-center"
-                            defaultValue={`$${userData[0].data.data.borrowedValue.toFixed(2)}`}
+                            defaultValue={`$${userData[0] ? userData[0].data.data.borrowedValue.toFixed(2) : 0}`}
                         />
                     </Form.Group>
 
@@ -104,14 +109,14 @@ export default function Reserves({
                     <Form.Group as={Col} controlId="allowedBorrowValue">    
                         <Form.Label>Allowed Borrow Value</Form.Label>
                         <Form.Control readOnly className="text-center"
-                            defaultValue={`$${userData[0].data.data.allowedBorrowValue.toFixed(2)}`} 
+                            defaultValue={`$${userData[0] ? userData[0].data.data.allowedBorrowValue.toFixed(2) : 0}`} 
                         />
                     </Form.Group>
                     
                     <Form.Group as={Col} controlId="liquidationThreshold">
                         <Form.Label>Liquidation Threshold</Form.Label>
                         <Form.Control readOnly className="text-center"
-                            defaultValue={`$${userData[0].data.data.unhealthyBorrowValue.toFixed(2)}`}
+                            defaultValue={`$${userData[0] ? userData[0].data.data.unhealthyBorrowValue.toFixed(2) : 0}`}
                         />
                     </Form.Group>
                 </Row>
